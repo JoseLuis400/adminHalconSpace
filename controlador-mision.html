@@ -67,7 +67,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   misiones.forEach(m => {
     const option = document.createElement("option");
     option.value = m.id;
-    option.textContent = `${m.nombre} (${m.fecha} ${m.timeUTC || ""})`;
+    option.textContent = `${m.nombre} (${m.fecha} - ${m.timeUTC +  " UTC"|| ""})`;
     selector.appendChild(option);
   });
 
