@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel de Control de Lanzamiento</title>
+  <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+// ===== Configuración Firebase =====
+const firebaseConfig = {
+  apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+  authDomain: "halcon-space-348e7.firebaseapp.com",
+  projectId: "halcon-space-348e7",
+  storageBucket: "halcon-space-348e7.firebasestorage.app",
+  messagingSenderId: "741724706453",
+  appId: "1:741724706453:web:519531e63f2b923f952d9c",
+  measurementId: "G-VG1Y2YMY4W"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let lanzamientoId = null;
+let contadorInterval = null;
+
+const capitalize = str => str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
+
+// Convierte fecha DD/MM/YYYY y hora hh:mm:ss a Date UTC
+function getLaunchUTC(fechaStr, timeStr) {
+  const [day, month, year] = fechaStr.split("/").map(Number);
+  const [hours = 0, minutes = 0, seconds = 0] = (timeStr || "00:00:00").split(":").map(Number);
+  return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+}
+
+// Calcula T-/T+ con opción de pasar "ahora" como referencia
+function calcularContador(fechaStr, timeStr, ahora = new Date()) {
+  const lanzamiento = getLaunchUTC(fechaStr, timeStr);
+  let diff = lanzamiento - ahora;
+  let signo = "T-";
+  if(diff < 0) {
+    signo = "T+";
+    diff = Math.abs(diff);
+  }
+  const dias = Math.floor(diff / 86400000);
+  const horas = String(Math.floor((diff % 86400000) / 3600000)).padStart(2, "0");
+  const minutos = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
+  const segundos = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
+  return dias > 0 ? `${signo}${dias}d ${horas}:${minutos}:${segundos}` : `${signo}${horas}:${minutos}:${segundos}`;
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const selector = document.getElementById("selectorMision");
+  const form = document.getElementById("formT0");
+  const estadoElem = document.getElementById("estadoActual");
+  const contadorElem = document.getElementById("contadorActual");
+  const holdTimeElem = document.getElementById("holdTime");
+
+  // ===== Cargar misiones desde Firestore =====
+  const snap = await getDocs(collection(db, "lanzamientos"));
+  let misiones = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+
+  // Orden descendente por fecha
+  misiones.sort((a,b) => getLaunchUTC(b.fecha, b.timeUTC || "00:00:00") - getLaunchUTC(a.fecha, a.timeUTC || "00:00:00"));
+
+  // Crear opciones del selector
+  misiones.forEach(m => {
+    const option = document.createElement("option");
+    option.value = m.id;
+    option.textContent = `${m.nombre} (${m.fecha} ${m.timeUTC || ""})`;
+    selector.appendChild(option);
+  });
+
+  // Seleccionar la misión más reciente por defecto
+  if(misiones.length > 0){
+    lanzamientoId = misiones[0].id;
+    selector.value = lanzamientoId;
+    cargarDatosMision(misiones[0]);
+  }
+
+  selector.addEventListener("change", e => {
+    lanzamientoId = e.target.value;
+    const m = misiones.find(m => m.id === lanzamientoId);
+    if(m) cargarDatosMision(m);
+  });
+
+  // ===== Función para cargar datos de la misión =====
+  function cargarDatosMision(mision){
+    // Rellenar inputs fecha/hora
+    form.fecha.value = mision.fecha.split("/").reverse().join("-");
+    form.hora.value = mision.timeUTC || "00:00:00";
+
+    // Mostrar estado
+    estadoElem.textContent = capitalize(mision.estado || "Desconocido");
+
+    // Mostrar holdTime
+    holdTimeElem.textContent = mision.holdTime ? `Hora HOLD/SCRUB: ${mision.holdTime}` : "";
+
+    // Contador siempre visible
+    contadorElem.style.display = "block";
+    if(contadorInterval) clearInterval(contadorInterval);
+    contadorInterval = setInterval(() => {
+      let ahora = new Date();
+
+      // Congelar contador si HOLD o SCRUB
+      if((mision.estado === "hold" || mision.estado === "scrub") && mision.holdTime){
+        ahora = new Date(mision.holdTime);
+      }
+
+      contadorElem.textContent = calcularContador(mision.fecha, mision.timeUTC, ahora);
+    }, 1000);
+  }
+
+  // ===== Guardar T-0 =====
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    if(!lanzamientoId) return alert("⚠️ Selecciona una misión primero");
+
+    const fecha = form.fecha.value.split("-").reverse().join("/");
+    const hora = form.hora.value;
+    const utcTime = getLaunchUTC(fecha, hora).toISOString();
+
+    await updateDoc(doc(db, "lanzamientos", lanzamientoId), {
+      fecha,
+      timeUTC: hora,
+      utcTime
+    });
+
+    alert("✅ T-0 actualizado");
+  });
+
+  // ===== Botones de estado =====
+  document.querySelectorAll("[data-estado]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if(!lanzamientoId) return alert("⚠️ Selecciona una misión primero");
+
+      const estado = btn.dataset.estado;
+      const updateData = { estado };
+
+      // Si es HOLD o SCRUB, guardar la hora ISO
+      if(estado === "hold" || estado === "scrub"){
+        updateData.holdTime = new Date().toISOString();
+      } else {
+        updateData.holdTime = null;
+      }
+
+      await updateDoc(doc(db, "lanzamientos", lanzamientoId), updateData);
+
+      // Actualizar pantalla
+      estadoElem.textContent = capitalize(estado);
+      holdTimeElem.textContent = updateData.holdTime ? `Hora HOLD/SCRUB: ${updateData.holdTime}` : "";
+
+      alert(`✅ Estado cambiado a ${estado}`);
+    });
+  });
+
+});
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0d0d0d;
+      color: #f1f1f1;
+      text-align: center;
+      padding: 2rem;
+    }
+    h1 { margin-bottom: 1rem; }
+    select {
+      padding: 0.5rem;
+      margin-bottom: 1.5rem;
+      border-radius: 4px;
+      border: none;
+      font-size: 1rem;
+    }
+    form {
+      background: #1a1a1a;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      display: inline-block;
+    }
+    input {
+      margin: 0.3rem;
+      padding: 0.4rem;
+      border-radius: 4px;
+      border: none;
+    }
+    button {
+      margin: 0.4rem;
+      padding: 0.6rem 1rem;
+      border: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .programado { background: #0066ff; color: #fff; }
+    .hold { background: #ffcc00; color: #000; }
+    .scrub { background: #ff4444; }
+    .exito { background: #00cc66; }
+    .fallo { background: #990000; }
+    .envuelo { background: #0066ff; }
+    #contadorActual {
+      font-size: 2rem;
+      margin: 1rem 0;
+      font-weight: bold;
+    }
+    #holdTime {
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      color: #ffcc00;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚀 Panel de Control de Lanzamiento</h1>
+
+  <div>
+    <label for="selectorMision"><strong>Seleccionar misión:</strong></label>
+    <br>
+    <select id="selectorMision">
+      <option value="">-- Selecciona una misión --</option>
+    </select>
+  </div>
+
+  <p><strong>Estado actual:</strong> <span id="estadoActual">Desconocido</span></p>
+  <p id="contadorActual"></p>
+  <p id="holdTime"></p>
+
+  <form id="formT0">
+    <h2>Modificar T-0</h2>
+    <label>Fecha (UTC): <input type="date" name="fecha" required></label>
+    <label>Hora (UTC): <input type="time" step="1" name="hora" required></label>
+    <button type="submit">Actualizar T-0</button>
+  </form>
+
+  <div>
+    <h2>Acciones rápidas</h2>
+    <button class="programado" data-estado="programado">Programado</button>
+    <button class="hold" data-estado="hold">HOLD</button>
+    <button class="scrub" data-estado="scrub">SCRUB</button>
+    <button class="exito" data-estado="exito">Éxito</button>
+    <button class="fallo" data-estado="fallo">Fallo</button>
+    <button class="envuelo" data-estado="en vuelo">En vuelo</button>
+  </div>
+</body>
+</html>
