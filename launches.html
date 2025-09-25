@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Admin - Editar Lanzamientos</title>
+<style>
+/* RESET BÁSICO */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #121212;
+  color: #fff;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1, h2 { margin-bottom: 20px; text-align: center; }
+
+.form-section {
+  background-color: #1b1b1b;
+  padding: 30px;
+  border-radius: 10px;
+  margin-bottom: 30px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.6);
+  width: 100%;
+  max-width: 800px;
+}
+
+form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+form label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+form input, form select, form textarea {
+  padding: 10px;
+  border-radius: 5px;
+  border: none;
+  background-color: #1e1e1e;
+  color: #fff;
+  width: 100%;
+  font-size: 14px;
+}
+
+form textarea {
+  grid-column: 1 / -1;
+  resize: vertical;
+}
+
+button {
+  grid-column: 1 / -1;
+  padding: 12px;
+  font-weight: bold;
+  background-color: #2196f3;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+button:hover {
+  background-color: #1976d2;
+}
+
+#log {
+  max-width: 800px;
+  width: 100%;
+  height: 200px;
+  overflow-y: auto;
+  background-color: #1e1e1e;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  margin-top: 20px;
+}
+
+.success { color: #00ff88; }
+.error { color: #ff4444; }
+
+/* Responsivo */
+@media (max-width: 600px) {
+  form {
+    grid-template-columns: 1fr;
+  }
+}
+
+</style>
+</head>
+<body>
+
+<h1>Panel Admin - Lanzamientos</h1>
+
+<div class="form-section">
+  <h2>Seleccionar misión para editar</h2>
+  <select id="selectMision">
+    <option value="">-- Selecciona una misión --</option>
+  </select>
+</div>
+
+<div class="form-section">
+  <h2>Editar / Agregar misión</h2>
+  <form id="formMision">
+    <label for="nombre">Nombre</label>
+    <input type="text" id="nombre" placeholder="Nombre de la misión" required>
+
+    <label for="fecha">Fecha (DD/MM/YYYY)</label>
+    <input type="date" id="fecha" required>
+
+    <label for="timeUTC">Hora UTC (HH:MM:SS)</label>
+    <input type="time" id="timeUTC" step="1" value="00:00:00" required>
+
+    <label for="vehiculo">Vehículo</label>
+    <select id="vehiculo">
+      <option value="Falcon 9 Block 5">Falcon 9 Block 5</option>
+      <option value="Falcon Heavy">Falcon Heavy</option>
+      <option value="Cargo Dragon">Cargo Dragon</option>
+      <option value="Crew Dragon">Crew Dragon</option>
+      <option value="Otro">Otro</option>
+    </select>
+
+    <label for="estado">Estado</label>
+    <select id="estado">
+      <option value="programado">Programado</option>
+      <option value="en vuelo">En vuelo</option>
+      <option value="exito">Éxito</option>
+      <option value="fallido">Fallido</option>
+    </select>
+
+    <label for="plataforma">Plataforma</label>
+    <select id="plataforma">
+      <option value="">-- Selecciona plataforma --</option>
+      <option value="LC-39A">LC-39A</option>
+      <option value="SLC-40">SLC-40</option>
+      <option value="SLC-41">SLC-4E</option>
+    </select>
+
+    <label for="imagen">URL Imagen</label>
+    <input type="text" id="imagen" placeholder="https://...">
+
+    <label for="alt">Texto alternativo</label>
+    <input type="text" id="alt" placeholder="Descripción de la imagen">
+
+    <label for="detalleUrl">Detalle URL</label>
+    <input type="text" id="detalleUrl" placeholder="/lanzamientos/xyz">
+
+    <label for="stream">Stream URL</label>
+    <input type="text" id="stream" placeholder="https://...">
+
+    <button type="submit">Guardar misión</button>
+  </form>
+</div>
+
+<div id="log"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+  import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+    authDomain: "halcon-space-348e7.firebaseapp.com",
+    projectId: "halcon-space-348e7",
+    storageBucket: "halcon-space-348e7.firebasestorage.app",
+    messagingSenderId: "741724706453",
+    appId: "1:741724706453:web:519531e63f2b923f952d9c",
+    measurementId: "G-VG1Y2YMY4W"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const selectMision = document.getElementById("selectMision");
+  const formMision = document.getElementById("formMision");
+  const logDiv = document.getElementById("log");
+
+  function log(message, type="") {
+    const p = document.createElement("p");
+    p.textContent = message;
+    if(type) p.className = type;
+    logDiv.appendChild(p);
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  let currentId = null;
+
+  async function cargarMisiones() {
+    selectMision.innerHTML = '<option value="">-- Selecciona una misión --</option>';
+    const snap = await getDocs(collection(db, "lanzamientos"));
+    snap.forEach(docSnap => {
+      const data = docSnap.data();
+      const option = document.createElement("option");
+      option.value = docSnap.id;
+      option.textContent = data.nombre;
+      selectMision.appendChild(option);
+    });
+  }
+
+  selectMision.addEventListener("change", async () => {
+    const id = selectMision.value;
+    if(!id) {
+      formMision.reset();
+      currentId = null;
+      return;
+    }
+    currentId = id;
+    const docSnap = await getDocs(collection(db, "lanzamientos")).then(snap => snap.docs.find(d => d.id === id));
+    const data = docSnap.data();
+    formMision.nombre.value = data.nombre;
+    formMision.fecha.value = data.fecha;
+    formMision.timeUTC.value = data.timeUTC || "00:00:00";
+    formMision.vehiculo.value = data.vehiculo;
+    formMision.estado.value = data.estado;
+    formMision.plataforma.value = data.plataforma || "";
+    formMision.imagen.value = data.imagen || "";
+    formMision.alt.value = data.alt || "";
+    formMision.detalleUrl.value = data.detalleUrl || "";
+    formMision.stream.value = data.stream || "";
+  });
+
+  formMision.addEventListener("submit", async e => {
+    e.preventDefault();
+    const id = currentId || formMision.nombre.value.toLowerCase().replace(/\s+/g,"-");
+    const data = {
+      nombre: formMision.nombre.value,
+      fecha: formMision.fecha.value,
+      timeUTC: formMision.timeUTC.value,
+      vehiculo: formMision.vehiculo.value,
+      estado: formMision.estado.value,
+      plataforma: formMision.plataforma.value || null,
+      imagen: formMision.imagen.value || null,
+      alt: formMision.alt.value || null,
+      detalleUrl: formMision.detalleUrl.value || null,
+      stream: formMision.stream.value || null
+    };
+    await setDoc(doc(db, "lanzamientos", id), data);
+    log("✅ Misión guardada: " + data.nombre, "success");
+    formMision.reset();
+    currentId = null;
+    cargarMisiones();
+  });
+
+  cargarMisiones();
+</script>
+</body>
+</html>
