@@ -366,10 +366,16 @@ formMision.addEventListener("submit", async e => {
   e.preventDefault();
   if(!currentId) return alert("Selecciona primero una misión desde la tarjeta");
 
+  // Construir datos
+  const fecha = formMision.fecha.value.split("-").reverse().join("/"); // DD/MM/YYYY
+  const timeUTC = formMision.timeUTC.value;
+  const utcTime = getLaunchUTC(fecha, timeUTC).toISOString(); // 👈 nuevo campo
+
   const data = {
     nombre: formMision.nombre.value,
-    fecha: formMision.fecha.value.split("-").reverse().join("/"), // DD/MM/YYYY
-    timeUTC: formMision.timeUTC.value,
+    fecha,
+    timeUTC,
+    utcTime, // 👈 agregado
     contador: formMision.contador.value === "true",
     vehiculo: formMision.vehiculo.value,
     estado: formMision.estado.value,
@@ -379,6 +385,7 @@ formMision.addEventListener("submit", async e => {
     detalleUrl: formMision.detalleUrl.value || null,
     stream: formMision.stream.value || null
   };
+
   await setDoc(doc(db, "lanzamientos", currentId), data);
   console.log("Misión guardada: " + data.nombre);
   formMision.reset();
@@ -388,7 +395,6 @@ formMision.addEventListener("submit", async e => {
 
 // Inicializar
 mostrarMisiones();
-
 </script>
 </body>
 </html>
