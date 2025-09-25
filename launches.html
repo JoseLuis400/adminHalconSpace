@@ -53,7 +53,7 @@ form input, form select, form textarea {
 
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
-    filter: invert(1); /* Invierte colores: blanco sobre fondo oscuro */
+    filter: invert(1); /* blanco sobre fondo oscuro */
     cursor: pointer;
 }
 
@@ -76,28 +76,6 @@ button {
 
 button:hover {
   background-color: #1976d2;
-}
-
-#log {
-  max-width: 800px;
-  width: 100%;
-  height: 200px;
-  overflow-y: auto;
-  background-color: #1e1e1e;
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #333;
-  margin-top: 20px;
-}
-
-.success { color: #00ff88; }
-.error { color: #ff4444; }
-
-/* Responsivo */
-@media (max-width: 600px) {
-  form {
-    grid-template-columns: 1fr;
-  }
 }
 
 #misionesContainer {
@@ -150,7 +128,18 @@ button:hover {
   background-color: #1976d2;
 }
 
+.contador {
+  font-weight: bold;
+  font-size: 16px;
+  margin-top: 5px;
+}
 
+/* Responsivo */
+@media (max-width: 600px) {
+  form {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
 </head>
 <body>
@@ -181,7 +170,6 @@ button:hover {
       <option value="true">Activo</option>
       <option value="false">Desactivo</option>
     </select>
-
 
     <label for="vehiculo">Vehículo</label>
     <select id="vehiculo">
@@ -249,154 +237,142 @@ const misionesContainer = document.getElementById("misionesContainer");
 
 let currentId = null;
 
-// Convierte "DD/MM/YYYY" -> "YYYY-MM-DD" para input type=date
-function formatoFechaInput(fechaStr) {
-  const [dia, mes, anio] = fechaStr.split("/").map(Number);
-  return `${anio.toString().padStart(4,'0')}-${mes.toString().padStart(2,'0')}-${dia.toString().padStart(2,'0')}`;
-}
-
-// Convierte "YYYY-MM-DD" -> "DD/MM/YYYY" para Firestore
-function formatoFechaFirestore(fechaInput) {
-  const [anio, mes, dia] = fechaInput.split("-");
-  return `${dia}/${mes}/${anio}`;
-}
-
-// Capitaliza la primera letra
-function capitalize(str) {
-  if (!str) return "";
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-// Normaliza URLs de imágenes
-function normalizeURL(url) {
-  if (!url) return "https://via.placeholder.com/300x150?text=Sin+imagen";
+// Utilidades
+function capitalize(str){ return str ? str.charAt(0).toUpperCase() + str.slice(1) : ""; }
+function normalizeURL(url){
+  if(!url) return "https://via.placeholder.com/300x150?text=Sin+imagen";
   url = url.trim();
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  if (!url.startsWith("/")) url = "/" + url;
+  if(url.startsWith("http://") || url.startsWith("https://")) return url;
+  if(!url.startsWith("/")) url = "/" + url;
   return `https://halconspace.site${url}`;
 }
+function formatoFechaInput(fechaStr){
+  const [d,m,y] = fechaStr.split("/").map(Number);
+  return `${y.toString().padStart(4,'0')}-${m.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+}
 
-// Carga misiones en el selector
-async function cargarMisiones() {
+// Cargar misiones en selector
+async function cargarMisiones(){
   selectMision.innerHTML = '<option value="">-- Selecciona una misión --</option>';
-  const snap = await getDocs(collection(db, "lanzamientos"));
-
-  const misiones = snap.docs.map(docSnap => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      nombre: data.nombre,
-      estado: data.estado,
-      fecha: data.fecha,
-      timeUTC: data.timeUTC || "00:00:00"
-    };
-  });
-
-  // Orden descendente por fecha
-  misiones.sort((a,b) => {
+  const snap = await getDocs(collection(db,"lanzamientos"));
+  const misiones = snap.docs.map(d => ({id:d.id,...d.data()}));
+  misiones.sort((a,b)=>{
     const [dA,mA,yA] = a.fecha.split("/").map(Number);
     const [dB,mB,yB] = b.fecha.split("/").map(Number);
     return new Date(yB,mB-1,dB) - new Date(yA,mA-1,dA);
   });
-
-  misiones.forEach(m => {
-    const option = document.createElement("option");
-    option.value = m.id;
-    option.textContent = `${m.nombre} - ${capitalize(m.estado)} - ${m.fecha} - ${m.timeUTC}`;
-    selectMision.appendChild(option);
+  misiones.forEach(m=>{
+    const opt = document.createElement("option");
+    opt.value = m.id;
+    opt.textContent = `${m.nombre} - ${capitalize(m.estado)} - ${m.fecha}`;
+    selectMision.appendChild(opt);
   });
 }
 
-// Selecciona misión desde el selector
-selectMision.addEventListener("change", async () => {
+// Seleccionar misión desde selector
+selectMision.addEventListener("change", async ()=>{
   const id = selectMision.value;
-  if (!id) {
-    formMision.reset();
-    currentId = null;
-    return;
-  }
+  if(!id){ formMision.reset(); currentId=null; return; }
   currentId = id;
-  await rellenarFormulario(id);
-});
-
-// Rellena el formulario con los datos de la misión
-async function rellenarFormulario(id) {
-  const snap = await getDocs(collection(db, "lanzamientos"));
-  const docSnap = snap.docs.find(d => d.id === id);
-  if (!docSnap) return;
+  const snap = await getDocs(collection(db,"lanzamientos"));
+  const docSnap = snap.docs.find(d=>d.id===id);
   const data = docSnap.data();
 
   formMision.nombre.value = data.nombre;
   formMision.fecha.value = formatoFechaInput(data.fecha);
-  formMision.timeUTC.value = data.timeUTC || "00:00:00";
-  formMision.contador.value = data.contador !== undefined ? String(data.contador) : "true";
+  formMision.timeUTC.value = data.timeUTC||"00:00:00";
+  formMision.contador.value = data.contador !== undefined ? String(data.contador) : "false";
   formMision.vehiculo.value = data.vehiculo;
   formMision.estado.value = data.estado;
-  formMision.plataforma.value = data.plataforma || "";
-  formMision.imagen.value = data.imagen || "";
-  formMision.alt.value = data.alt || "";
-  formMision.detalleUrl.value = data.detalleUrl || "";
-  formMision.stream.value = data.stream || "";
-}
+  formMision.plataforma.value = data.plataforma||"";
+  formMision.imagen.value = data.imagen||"";
+  formMision.alt.value = data.alt||"";
+  formMision.detalleUrl.value = data.detalleUrl||"";
+  formMision.stream.value = data.stream||"";
+});
 
-// Guardar o actualizar misión
-formMision.addEventListener("submit", async e => {
+// Guardar misión
+formMision.addEventListener("submit", async e=>{
   e.preventDefault();
   const id = currentId || formMision.nombre.value.toLowerCase().replace(/\s+/g,"-");
   const data = {
     nombre: formMision.nombre.value,
-    fecha: formatoFechaFirestore(formMision.fecha.value),
+    fecha: formMision.fecha.value.split("-").reverse().join("/"), // guardar DD/MM/YYYY
     timeUTC: formMision.timeUTC.value,
-    contador: formMision.contador.value === "true",
+    contador: formMision.contador.value==="true",
     vehiculo: formMision.vehiculo.value,
     estado: formMision.estado.value,
-    plataforma: formMision.plataforma.value || null,
-    imagen: formMision.imagen.value || null,
-    alt: formMision.alt.value || null,
-    detalleUrl: formMision.detalleUrl.value || null,
-    stream: formMision.stream.value || null
+    plataforma: formMision.plataforma.value||null,
+    imagen: formMision.imagen.value||null,
+    alt: formMision.alt.value||null,
+    detalleUrl: formMision.detalleUrl.value||null,
+    stream: formMision.stream.value||null
   };
-  await setDoc(doc(db, "lanzamientos", id), data);
-  alert(`✅ Misión guardada: ${data.nombre}`);
+  await setDoc(doc(db,"lanzamientos",id),data);
   formMision.reset();
-  currentId = null;
+  currentId=null;
   cargarMisiones();
   mostrarMisiones();
 });
 
-// Mostrar todas las misiones como tarjetas
-async function mostrarMisiones() {
-  misionesContainer.innerHTML = "";
-  const snap = await getDocs(collection(db, "lanzamientos"));
-  const misiones = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-
-  // Orden descendente por fecha
-  misiones.sort((a,b) => {
+// Mostrar misiones en tarjetas
+async function mostrarMisiones(){
+  misionesContainer.innerHTML="";
+  const snap = await getDocs(collection(db,"lanzamientos"));
+  const misiones = snap.docs.map(d=>({id:d.id,...d.data()}));
+  misiones.sort((a,b)=>{
     const [dA,mA,yA] = a.fecha.split("/").map(Number);
     const [dB,mB,yB] = b.fecha.split("/").map(Number);
     return new Date(yB,mB-1,dB) - new Date(yA,mA-1,dA);
   });
 
-  misiones.forEach(m => {
+  misiones.forEach(m=>{
     const card = document.createElement("div");
-    card.className = "card-mision";
-    card.innerHTML = `
-      <img src="${normalizeURL(m.imagen)}" alt="${m.alt || ''}">
+    card.className="card-mision";
+
+    function calcularContador(){
+      if(!m.contador) return "";
+      const [d,mn,y] = m.fecha.split("/").map(Number);
+      const [h=0,mi=0,s=0] = (m.timeUTC||"00:00:00").split(":").map(Number);
+      const lanzamiento = new Date(y,mn-1,d,h,mi,s);
+      const ahora = new Date();
+      let diff = lanzamiento - ahora;
+      let signo = "T-";
+      if(diff<0){ signo="T+"; diff=Math.abs(diff); }
+      const horas = String(Math.floor(diff/3600000)).padStart(2,"0");
+      const minutos = String(Math.floor((diff%3600000)/60000)).padStart(2,"0");
+      const segundos = String(Math.floor((diff%60000)/1000)).padStart(2,"0");
+      return `${signo}${horas}:${minutos}:${segundos}`;
+    }
+
+    card.innerHTML=`
+      <img src="${normalizeURL(m.imagen)}" alt="${m.alt||''}">
       <h3>${m.nombre}</h3>
       <p><strong>Estado:</strong> ${capitalize(m.estado)}</p>
       <p><strong>Fecha:</strong> ${m.fecha}</p>
-      <p><strong>Hora UTC:</strong> ${m.timeUTC || '00:00:00'}</p>
+      <p><strong>Hora UTC:</strong> ${m.timeUTC}</p>
       <p><strong>Vehículo:</strong> ${m.vehiculo}</p>
-      <p><strong>Plataforma:</strong> ${m.plataforma || '-'}</p>
-      <p><strong>Contador:</strong> ${m.contador ? "Sí" : "No"}</p>
+      <p><strong>Plataforma:</strong> ${m.plataforma||''}</p>
+      ${m.contador ? `<p class="contador">${calcularContador()}</p>` : ""}
       <button>Editar</button>
     `;
-    card.querySelector("button").addEventListener("click", () => {
-      currentId = m.id;
-      rellenarFormulario(m.id);
-    });
+
+    if(m.contador){
+      setInterval(()=>{
+        const elem = card.querySelector(".contador");
+        if(elem) elem.textContent = calcularContador();
+      },1000);
+    }
+
+    card.querySelector("button").addEventListener("click",()=>seleccionarMision(m.id));
     misionesContainer.appendChild(card);
   });
+}
+
+// Seleccionar misión desde tarjeta
+async function seleccionarMision(id){
+  selectMision.value=id;
+  selectMision.dispatchEvent(new Event("change"));
 }
 
 // Inicializar
