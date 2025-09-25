@@ -51,6 +51,12 @@ form input, form select, form textarea {
   font-size: 14px;
 }
 
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(1); /* Invierte colores: blanco sobre fondo oscuro */
+    cursor: pointer;
+}
+
 form textarea {
   grid-column: 1 / -1;
   resize: vertical;
@@ -194,16 +200,48 @@ button:hover {
   let currentId = null;
 
   async function cargarMisiones() {
-    selectMision.innerHTML = '<option value="">-- Selecciona una misión --</option>';
-    const snap = await getDocs(collection(db, "lanzamientos"));
-    snap.forEach(docSnap => {
-      const data = docSnap.data();
-      const option = document.createElement("option");
-      option.value = docSnap.id;
-      option.textContent = data.nombre;
-      selectMision.appendChild(option);
-    });
-  }
+  selectMision.innerHTML = '<option value="">-- Selecciona una misión --</option>';
+  const snap = await getDocs(collection(db, "lanzamientos"));
+  
+  // Convertir a array y ordenar por fecha descendente
+  const misiones = snap.docs.map(docSnap => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      nombre: data.nombre,
+      fecha: data.fecha,
+      estado: data.estado,
+      time: data.timeUTC
+    };
+  });
+
+  misiones.sort((a, b) => {
+    const [dA, mA, yA] = a.fecha.split("/").map(Number);
+    const [dB, mB, yB] = b.fecha.split("/").map(Number);
+    return new Date(yB, mB - 1, dB) - new Date(yA, mA - 1, dA);
+  });
+
+  misiones.forEach(m => {
+    const option = document.createElement("option");
+    option.value = m.id;
+    option.textContent = `${m.nombre} - ${capitalize(m.estado)} - ${m.fecha} - ${m.time}`;
+    selectMision.appendChild(option);
+  });
+}
+
+// Función auxiliar para capitalizar la primera letra
+function capitalize(str) {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function formatoFechaInput(fechaStr) {
+  // fechaStr = "DD/MM/YYYY"
+  const [dia, mes, anio] = fechaStr.split("/").map(Number);
+  // Retorna "YYYY-MM-DD"
+  return `${anio.toString().padStart(4,"0")}-${mes.toString().padStart(2,"0")}-${dia.toString().padStart(2,"0")}`;
+}
+
 
   selectMision.addEventListener("change", async () => {
     const id = selectMision.value;
@@ -216,7 +254,7 @@ button:hover {
     const docSnap = await getDocs(collection(db, "lanzamientos")).then(snap => snap.docs.find(d => d.id === id));
     const data = docSnap.data();
     formMision.nombre.value = data.nombre;
-    formMision.fecha.value = data.fecha;
+    formMision.fecha.value = formatoFechaInput(data.fecha);
     formMision.timeUTC.value = data.timeUTC || "00:00:00";
     formMision.vehiculo.value = data.vehiculo;
     formMision.estado.value = data.estado;
