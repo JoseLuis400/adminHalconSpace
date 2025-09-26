@@ -364,34 +364,60 @@ async function seleccionarMision(id) {
 // Guardar misión
 formMision.addEventListener("submit", async e => {
   e.preventDefault();
-  if(!currentId) return alert("Selecciona primero una misión desde la tarjeta");
+
+  // Validar campos obligatorios
+  const requiredFields = [
+    { field: formMision.nombre, name: "Nombre" },
+    { field: formMision.fecha, name: "Fecha" },
+    { field: formMision.timeUTC, name: "Hora UTC" },
+    { field: formMision.vehiculo, name: "Vehículo" },
+    { field: formMision.estado, name: "Estado" },
+    { field: formMision.plataforma, name: "Plataforma" },
+    { field: formMision.contador, name: "Contador" }
+  ];
+
+  for (const f of requiredFields) {
+    if (!f.field.value.trim()) {
+      return alert(`El campo "${f.name}" es obligatorio.`);
+    }
+  }
 
   // Construir datos
   const fecha = formMision.fecha.value.split("-").reverse().join("/"); // DD/MM/YYYY
   const timeUTC = formMision.timeUTC.value;
-  const utcTime = getLaunchUTC(fecha, timeUTC).toISOString(); // 👈 nuevo campo
+  const utcTime = getLaunchUTC(fecha, timeUTC).toISOString();
 
   const data = {
-    nombre: formMision.nombre.value,
+    nombre: formMision.nombre.value.trim(),
     fecha,
     timeUTC,
-    utcTime, // 👈 agregado
+    utcTime,
     contador: formMision.contador.value === "true",
     vehiculo: formMision.vehiculo.value,
     estado: formMision.estado.value,
-    plataforma: formMision.plataforma.value || null,
+    plataforma: formMision.plataforma.value,
     imagen: formMision.imagen.value || null,
     alt: formMision.alt.value || null,
-    detalleUrl: formMision.detalleUrl.value || null,
-    stream: formMision.stream.value || null
+    detalleUrl: formMision.detalleUrl.value || null, // puede estar vacío
+    stream: formMision.stream.value || null         // puede estar vacío
   };
 
-  await setDoc(doc(db, "lanzamientos", currentId), data);
-  console.log("Misión guardada: " + data.nombre);
+  if (!currentId) {
+    // Crear nueva misión
+    const newDocRef = doc(collection(db, "lanzamientos"));
+    await setDoc(newDocRef, data);
+    console.log("Nueva misión agregada: " + data.nombre);
+  } else {
+    // Editar misión existente
+    await setDoc(doc(db, "lanzamientos", currentId), data);
+    console.log("Misión actualizada: " + data.nombre);
+  }
+
   formMision.reset();
   currentId = null;
   mostrarMisiones();
 });
+
 
 // Inicializar
 mostrarMisiones();
