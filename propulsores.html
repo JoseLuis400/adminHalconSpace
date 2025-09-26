@@ -160,7 +160,6 @@ function loadToForm(id, data) {
   propIdInput.value = id;
   estadoInput.value = data.estado;
   tipoInput.value = data.tipo;
-  imgInput.value = data.img;
   vuelosContainer.innerHTML = '';
   const vuelosOrdenados = Object.entries(data.vuelos || {})
   .sort((a, b) => {
@@ -192,8 +191,6 @@ saveBtn.addEventListener('click', async () => {
     const key = inputs[0].value.trim();
     const mision = inputs[1].value.trim();
     const fecha = inputs[2].value.trim();
-    const url = inputs[3].value.trim();
-    if (key) vuelos[key] = { mision, fecha, url };
   });
 
   // Guardar en Firestore
