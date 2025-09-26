@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       utcTime
     });
 
-    alert("✅ T-0 actualizado");
+    console.log("✅ T-0 actualizado");
   });
 
   // ===== Botones de estado =====
@@ -150,7 +150,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       estadoElem.textContent = capitalize(estado);
       holdTimeElem.textContent = updateData.holdTime ? `Hora HOLD/SCRUB: ${updateData.holdTime}` : "";
 
-      alert(`✅ Estado cambiado a ${estado}`);
+      console.log(`✅ Estado cambiado a ${estado}`);
     });
   });
 
