@@ -118,6 +118,34 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("✅ T-0 actualizado");
   });
 
+  document.getElementById("reciclarBtn").addEventListener("click", async () => {
+  if(!misionActual) return alert("⚠️ Selecciona una misión primero");
+
+  // Calcular holdTime como 14:59 antes del T-0
+  const t0 = getLaunchUTC(misionActual.fecha, misionActual.timeUTC);
+  const tMinusSegundos = 14 * 60 + 59; // 14 min 59 seg
+  const nuevoHoldTime = new Date(t0.getTime() - tMinusSegundos * 1000).toISOString();
+
+  // Actualizar estado a HOLD y guardar holdTime
+  const updateData = {
+    estado: "hold",
+    holdTime: nuevoHoldTime
+  };
+
+  await updateDoc(doc(db, "lanzamientos", misionActual.id), updateData);
+
+  // Actualizar misionActual y congelar contador
+  misionActual = { ...misionActual, ...updateData };
+  tiempoCongelado = new Date(nuevoHoldTime);
+
+  // Actualizar pantalla
+  document.getElementById("estadoActual").textContent = "Hold";
+  document.getElementById("holdTime").textContent = `Hora HOLD/SCRUB: ${nuevoHoldTime}`;
+
+  console.log("✅ Reciclado: contador en T-00:14:59");
+});
+
+
   document.querySelectorAll("[data-estado]").forEach(btn => {
     btn.addEventListener("click", async () => {
       if(!misionActual) return;
@@ -235,6 +263,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     <button class="programado" data-estado="programado">Programado</button>
     <button class="hold" data-estado="hold">HOLD</button>
     <button class="scrub" data-estado="scrub">SCRUB</button>
+    <button id="reciclarBtn" class="programado">Reciclar</button>
     <button class="exito" data-estado="exito">Éxito</button>
     <button class="fallo" data-estado="fallo">Fallo</button>
     <button class="envuelo" data-estado="en vuelo">En vuelo</button>
