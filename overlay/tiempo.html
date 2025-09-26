@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Overlay</title>
+  <style>
+    body {
+      width: 1920px;
+      height: 1080px;
+      margin: 0;
+      background: orangered;
+    }
+
+    .tiempo {
+      position: absolute;
+      top: 100px;
+      left: 0px;
+      font-size: 35px;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 20px 40px;
+      border-radius: 0 150px 50px 0;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-weight: bold;
+      min-width: 200px;
+      max-width: 200px;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .tiempo span {
+      color: #ccc;
+    }
+
+    .missionName {
+      color: white;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-weight: bold;
+      font-size: 20px;
+      position: absolute;
+      left: 10px;
+      top: 190px;
+      width: 250px;
+      height: 50px;
+      text-align: center;
+    }
+    .statusMission {
+      color: white;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-weight: bold;
+      font-size: 15px;
+      position: absolute;
+      left: 10px;
+      top: 158px;
+      width: 250px;
+      height: 50px;
+      text-align: center;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="tiempo" id="timer-element">T--:--:--</div>
+  <div class="missionName" id="mission-name">MISIÓN DESCONOCIDA</div>
+  <duv class="statusMission" id="status"></duv>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+      authDomain: "halcon-space-348e7.firebaseapp.com",
+      projectId: "halcon-space-348e7",
+      storageBucket: "halcon-space-348e7.firebasestorage.app",
+      messagingSenderId: "741724706453",
+      appId: "1:741724706453:web:519531e63f2b923f952d9c",
+      measurementId: "G-VG1Y2YMY4W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const lanzamientoId = params.get("id");
+
+    if (!lanzamientoId) {
+      document.getElementById("timer-element").textContent = "⚠️ Falta parámetro ?id";
+      throw new Error("No se pasó ningún ID de lanzamiento");
+    }
+
+    let objetivoUTC = null;
+    let estado = null;
+    let holdUTC = null;
+    let intervalId = null;
+
+    function formatearTiempo(diffSegundos) {
+      const esPositivo = diffSegundos >= 0;
+      const horas = Math.floor(Math.abs(diffSegundos) / 3600);
+      const minutos = Math.floor((Math.abs(diffSegundos) % 3600) / 60);
+      const segundos = Math.floor(Math.abs(diffSegundos) % 60);
+      return `${esPositivo ? "T+" : "T-"} ${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+    }
+
+    function actualizarTimer() {
+      if (!objetivoUTC) return;
+
+      let diffSegundos;
+      if ((estado === "hold" || estado === "scrub") && holdUTC) {
+        // Congelar tiempo en T- cuando está en HOLD/SCRUB
+        diffSegundos = Math.floor((holdUTC.getTime() - objetivoUTC.getTime()) / 1000);
+        document.getElementById('status').textContent = estado;
+      } else {
+        // Normal: T- / T+
+        diffSegundos = Math.floor((Date.now() - objetivoUTC.getTime()) / 1000);
+        document.getElementById('status').textContent = "";
+      }
+
+      document.getElementById("timer-element").textContent = formatearTiempo(diffSegundos);
+    }
+
+    const refDoc = doc(db, "lanzamientos", lanzamientoId);
+    onSnapshot(refDoc, (snap) => {
+      if (!snap.exists()) {
+        document.getElementById("timer-element").textContent = "⚠️ Documento no encontrado";
+        return;
+      }
+
+      const data = snap.data();
+
+      if (data.nombre) document.getElementById("mission-name").textContent = data.nombre;
+
+      estado = data.estado ?? "normal";
+      objetivoUTC = data.utcTime ? new Date(data.utcTime) : null;
+      holdUTC = data.holdTime ? new Date(data.holdTime) : null;
+
+      if (!objetivoUTC) {
+        document.getElementById("timer-element").textContent = "⚠️ Falta utcTime";
+        return;
+      }
+
+      if (intervalId) clearInterval(intervalId);
+      actualizarTimer();
+      intervalId = setInterval(actualizarTimer, 1000);
+    });
+  </script>
+</body>
+</html>
