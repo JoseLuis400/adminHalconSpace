@@ -58,6 +58,18 @@
       text-align: center;
       text-transform: uppercase;
     }
+    .timer.countdown {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+}
+
+.timer-count-digit {
+  display: inline-block;
+  position: relative;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
   </style>
 </head>
 <body>
@@ -117,8 +129,35 @@
         document.getElementById('status').textContent = "";
       }
 
-      document.getElementById("timer-element").textContent = formatearTiempo(diffSegundos);
+      actualizarTimerAnimado(diffSegundos);
     }
+
+    function actualizarTimerAnimado(diffSegundos) {
+  const formatted = formatearTiempo(diffSegundos); // "T+ 01:23:45"
+  const timerElem = document.getElementById("timer-element");
+
+  // Comparar caracteres antiguos vs nuevos
+  const oldText = timerElem.textContent;
+  timerElem.innerHTML = ''; // limpiar
+
+  for (let i = 0; i < formatted.length; i++) {
+    const span = document.createElement('span');
+    span.className = 'timer-count-digit';
+    span.textContent = formatted[i];
+
+    // Si el carácter cambió, animamos
+    if (oldText[i] !== formatted[i]) {
+      span.style.opacity = 0;
+      span.style.transform = 'translateY(-20px)';
+      setTimeout(() => {
+        span.style.opacity = 1;
+        span.style.transform = 'translateY(0)';
+      }, 20);
+    }
+
+    timerElem.appendChild(span);
+  }
+}
 
     const refDoc = doc(db, "lanzamientos", lanzamientoId);
     onSnapshot(refDoc, (snap) => {
