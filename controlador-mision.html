@@ -22,23 +22,23 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 let lanzamientoId = null;
+let misionActual = null;
 let contadorInterval = null;
+let tiempoCongelado = null;
 
 const capitalize = str => str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
 
-// Convierte fecha DD/MM/YYYY y hora hh:mm:ss a Date UTC
 function getLaunchUTC(fechaStr, timeStr) {
   const [day, month, year] = fechaStr.split("/").map(Number);
   const [hours = 0, minutes = 0, seconds = 0] = (timeStr || "00:00:00").split(":").map(Number);
   return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
 }
 
-// Calcula T-/T+ con opción de pasar "ahora" como referencia
 function calcularContador(fechaStr, timeStr, ahora = new Date()) {
   const lanzamiento = getLaunchUTC(fechaStr, timeStr);
   let diff = lanzamiento - ahora;
   let signo = "T-";
-  if(diff < 0) {
+  if(diff < 0){
     signo = "T+";
     diff = Math.abs(diff);
   }
@@ -60,18 +60,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   const snap = await getDocs(collection(db, "lanzamientos"));
   let misiones = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
 
-  // Orden descendente por fecha
   misiones.sort((a,b) => getLaunchUTC(b.fecha, b.timeUTC || "00:00:00") - getLaunchUTC(a.fecha, a.timeUTC || "00:00:00"));
 
-  // Crear opciones del selector
   misiones.forEach(m => {
     const option = document.createElement("option");
     option.value = m.id;
-    option.textContent = `${m.nombre} (${m.fecha} - ${m.timeUTC +  " UTC"|| ""})`;
+    option.textContent = `${m.nombre} (${m.fecha} - ${m.timeUTC + " UTC" || ""})`;
     selector.appendChild(option);
   });
 
-  // Seleccionar la misión más reciente por defecto
   if(misiones.length > 0){
     lanzamientoId = misiones[0].id;
     selector.value = lanzamientoId;
@@ -84,34 +81,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     if(m) cargarDatosMision(m);
   });
 
-  // ===== Función para cargar datos de la misión =====
   function cargarDatosMision(mision){
-    // Rellenar inputs fecha/hora
+    misionActual = mision;
+
     form.fecha.value = mision.fecha.split("/").reverse().join("-");
     form.hora.value = mision.timeUTC || "00:00:00";
 
-    // Mostrar estado
     estadoElem.textContent = capitalize(mision.estado || "Desconocido");
-
-    // Mostrar holdTime
     holdTimeElem.textContent = mision.holdTime ? `Hora HOLD/SCRUB: ${mision.holdTime}` : "";
 
-    // Contador siempre visible
-    contadorElem.style.display = "block";
     if(contadorInterval) clearInterval(contadorInterval);
+
+    // Congelar si estamos en HOLD o SCRUB
+    tiempoCongelado = (mision.estado === "hold" || mision.estado === "scrub") ? (mision.holdTime ? new Date(mision.holdTime) : new Date()) : null;
+
     contadorInterval = setInterval(() => {
-      let ahora = new Date();
-
-      // Congelar contador si HOLD o SCRUB
-      if((mision.estado === "hold" || mision.estado === "scrub") && mision.holdTime){
-        ahora = new Date(mision.holdTime);
-      }
-
-      contadorElem.textContent = calcularContador(mision.fecha, mision.timeUTC, ahora);
+      const ahora = tiempoCongelado ? new Date(tiempoCongelado) : new Date();
+      contadorElem.textContent = calcularContador(misionActual.fecha, misionActual.timeUTC, ahora);
     }, 1000);
   }
 
-  // ===== Guardar T-0 =====
   form.addEventListener("submit", async e => {
     e.preventDefault();
     if(!lanzamientoId) return alert("⚠️ Selecciona una misión primero");
@@ -129,32 +118,39 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.log("✅ T-0 actualizado");
   });
 
-  // ===== Botones de estado =====
   document.querySelectorAll("[data-estado]").forEach(btn => {
     btn.addEventListener("click", async () => {
-      if(!lanzamientoId) return alert("⚠️ Selecciona una misión primero");
+      if(!misionActual) return;
 
       const estado = btn.dataset.estado;
       const updateData = { estado };
 
-      // Si es HOLD o SCRUB, guardar la hora ISO
-      if(estado === "hold" || estado === "scrub"){
+      // Solo HOLD establece holdTime si no existe
+      if(estado === "hold" && !misionActual.holdTime){
         updateData.holdTime = new Date().toISOString();
-      } else {
+      }
+
+      // Otros estados (distintos de HOLD y SCRUB) limpian holdTime
+      if(estado !== "hold" && estado !== "scrub"){
         updateData.holdTime = null;
       }
 
-      await updateDoc(doc(db, "lanzamientos", lanzamientoId), updateData);
+      await updateDoc(doc(db, "lanzamientos", misionActual.id), updateData);
+
+      // Actualizar misionActual
+      misionActual = { ...misionActual, ...updateData };
+
+      // Actualizar tiempoCongelado si estamos en HOLD o SCRUB
+      tiempoCongelado = (estado === "hold" || estado === "scrub") ? (misionActual.holdTime ? new Date(misionActual.holdTime) : new Date()) : null;
 
       // Actualizar pantalla
       estadoElem.textContent = capitalize(estado);
-      holdTimeElem.textContent = updateData.holdTime ? `Hora HOLD/SCRUB: ${updateData.holdTime}` : "";
-
-      console.log(`✅ Estado cambiado a ${estado}`);
+      holdTimeElem.textContent = misionActual.holdTime ? `Hora HOLD/SCRUB: ${misionActual.holdTime}` : "";
     });
   });
 
 });
+
   </script>
 
   <style>
