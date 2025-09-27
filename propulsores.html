@@ -181,8 +181,8 @@ saveBtn.addEventListener('click', async () => {
   if (!propId) return alert('ID del propulsor obligatorio');
 
   const estado = estadoInput.value;
-  const tipo = tipoInput.value; // select fijo
-  const img = `https://halconspace.site/img/propulsores/${propId}.png`; // URL automática
+  const tipo = tipoInput.value;
+  const img = `https://halconspace.site/img/propulsores/${propId}.png`;
 
   // Recolectar vuelos
   const vuelos = {};
@@ -191,10 +191,15 @@ saveBtn.addEventListener('click', async () => {
     const key = inputs[0].value.trim();
     const mision = inputs[1].value.trim();
     const fecha = inputs[2].value.trim();
+    const url = inputs[3].value.trim();
+
+    if (key) {
+      vuelos[key] = { mision, fecha, url };
+    }
   });
 
-  // Guardar en Firestore
-  await setDoc(doc(db, 'Propulsores', propId), { estado, tipo, img, vuelos });
+  // 🔥 unifica el nombre de la colección (todo minúscula para evitar confusión)
+  await setDoc(doc(db, 'propulsores', propId), { estado, tipo, img, vuelos });
 
   alert('Propulsor guardado!');
   loadPropulsores();
