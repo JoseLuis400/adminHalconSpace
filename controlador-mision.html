@@ -7,7 +7,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
 import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
 
-// ===== Configuración Firebase =====
 const firebaseConfig = {
   apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
   authDomain: "halcon-space-348e7.firebaseapp.com",
@@ -55,6 +54,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const estadoElem = document.getElementById("estadoActual");
   const contadorElem = document.getElementById("contadorActual");
   const holdTimeElem = document.getElementById("holdTime");
+  const switchTelemetria = document.getElementById("switchTelemetria");
+  const labelTelemetria = document.getElementById("labelTelemetria");
+  const idElem = document.getElementById("lanzamientoId");
 
   // ===== Cargar misiones desde Firestore =====
   const snap = await getDocs(collection(db, "lanzamientos"));
@@ -77,12 +79,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   selector.addEventListener("change", e => {
     lanzamientoId = e.target.value;
+    idElem.textContent = `ID Seleccionado: ${lanzamientoId}`;
     const m = misiones.find(m => m.id === lanzamientoId);
     if(m) cargarDatosMision(m);
   });
 
   function cargarDatosMision(mision){
     misionActual = mision;
+    idElem.textContent = `ID Seleccionado: ${mision.id}`;
 
     form.fecha.value = mision.fecha.split("/").reverse().join("-");
     form.hora.value = mision.timeUTC || "00:00:00";
@@ -91,15 +95,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     holdTimeElem.textContent = mision.holdTime ? `Hora HOLD/SCRUB: ${mision.holdTime}` : "";
 
     if(contadorInterval) clearInterval(contadorInterval);
-
-    // Congelar si estamos en HOLD o SCRUB
     tiempoCongelado = (mision.estado === "hold" || mision.estado === "scrub") ? (mision.holdTime ? new Date(mision.holdTime) : new Date()) : null;
-
     contadorInterval = setInterval(() => {
       const ahora = tiempoCongelado ? new Date(tiempoCongelado) : new Date();
       contadorElem.textContent = calcularContador(misionActual.fecha, misionActual.timeUTC, ahora);
     }, 1000);
+
+    // Actualizar switch telemetría
+    switchTelemetria.checked = mision.telemetria_on ?? false;
+    labelTelemetria.textContent = switchTelemetria.checked ? "Telemetría ACTIVADA" : "Telemetría DESACTIVADA";
   }
+
+  // ===== Switch Telemetría =====
+  switchTelemetria.addEventListener("change", async () => {
+    if(!misionActual) return alert("⚠️ Selecciona una misión primero");
+    const nuevoEstado = switchTelemetria.checked;
+    await updateDoc(doc(db, "lanzamientos", misionActual.id), {
+      telemetria_on: nuevoEstado
+    });
+    labelTelemetria.textContent = nuevoEstado ? "Telemetría ACTIVADA" : "Telemetría DESACTIVADA";
+    misionActual.telemetria_on = nuevoEstado;
+    console.log(`✅ Telemetría ${nuevoEstado ? "activada" : "desactivada"}`);
+  });
 
   form.addEventListener("submit", async e => {
     e.preventDefault();
@@ -117,123 +134,142 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     console.log("✅ T-0 actualizado");
   });
-
-  document.getElementById("reciclarBtn").addEventListener("click", async () => {
-  if(!misionActual) return alert("⚠️ Selecciona una misión primero");
-
-  // Calcular holdTime como 14:59 antes del T-0
-  const t0 = getLaunchUTC(misionActual.fecha, misionActual.timeUTC);
-  const tMinusSegundos = 14 * 60 + 59; // 14 min 59 seg
-  const nuevoHoldTime = new Date(t0.getTime() - tMinusSegundos * 1000).toISOString();
-
-  // Actualizar estado a HOLD y guardar holdTime
-  const updateData = {
-    estado: "hold",
-    holdTime: nuevoHoldTime
-  };
-
-  await updateDoc(doc(db, "lanzamientos", misionActual.id), updateData);
-
-  // Actualizar misionActual y congelar contador
-  misionActual = { ...misionActual, ...updateData };
-  tiempoCongelado = new Date(nuevoHoldTime);
-
-  // Actualizar pantalla
-  document.getElementById("estadoActual").textContent = "Hold";
-  document.getElementById("holdTime").textContent = `Hora HOLD/SCRUB: ${nuevoHoldTime}`;
-
-  console.log("✅ Reciclado: contador en T-00:14:59");
 });
-
-
-  document.querySelectorAll("[data-estado]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      if(!misionActual) return;
-
-      const estado = btn.dataset.estado;
-      const updateData = { estado };
-
-      // Solo HOLD establece holdTime si no existe
-      if(estado === "hold" && !misionActual.holdTime){
-        updateData.holdTime = new Date().toISOString();
-      }
-
-      // Otros estados (distintos de HOLD y SCRUB) limpian holdTime
-      if(estado !== "hold" && estado !== "scrub"){
-        updateData.holdTime = null;
-      }
-
-      await updateDoc(doc(db, "lanzamientos", misionActual.id), updateData);
-
-      // Actualizar misionActual
-      misionActual = { ...misionActual, ...updateData };
-
-      // Actualizar tiempoCongelado si estamos en HOLD o SCRUB
-      tiempoCongelado = (estado === "hold" || estado === "scrub") ? (misionActual.holdTime ? new Date(misionActual.holdTime) : new Date()) : null;
-
-      // Actualizar pantalla
-      estadoElem.textContent = capitalize(estado);
-      holdTimeElem.textContent = misionActual.holdTime ? `Hora HOLD/SCRUB: ${misionActual.holdTime}` : "";
-    });
-  });
-
-});
-
   </script>
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #0d0d0d;
-      color: #f1f1f1;
-      text-align: center;
-      padding: 2rem;
-    }
-    h1 { margin-bottom: 1rem; }
-    select {
-      padding: 0.5rem;
-      margin-bottom: 1.5rem;
-      border-radius: 4px;
-      border: none;
-      font-size: 1rem;
-    }
-    form {
-      background: #1a1a1a;
-      padding: 1rem;
-      border-radius: 6px;
-      margin-bottom: 1rem;
-      display: inline-block;
-    }
-    input {
-      margin: 0.3rem;
-      padding: 0.4rem;
-      border-radius: 4px;
-      border: none;
-    }
-    button {
-      margin: 0.4rem;
-      padding: 0.6rem 1rem;
-      border: none;
-      border-radius: 4px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .programado { background: #0066ff; color: #fff; }
-    .hold { background: #ffcc00; color: #000; }
-    .scrub { background: #ff4444; }
-    .exito { background: #00cc66; }
-    .fallo { background: #990000; }
-    .envuelo { background: #0066ff; }
-    #contadorActual {
-      font-size: 2rem;
-      margin: 1rem 0;
-      font-weight: bold;
-    }
-    #holdTime {
-      font-size: 1rem;
-      margin-bottom: 1rem;
-      color: #ffcc00;
-    }
+body {
+  font-family: Arial, sans-serif;
+  background: #0d0d0d;
+  color: #f1f1f1;
+  text-align: center;
+  padding: 2rem;
+}
+
+h1 { 
+  margin-bottom: 1rem; 
+}
+
+select, input { 
+  padding: 0.5rem; 
+  margin: 0.3rem; 
+  border-radius: 4px; 
+  border: none; 
+  font-size: 1rem; 
+}
+
+button { 
+  margin: 0.4rem; 
+  padding: 0.6rem 1rem; 
+  border: none; 
+  border-radius: 4px; 
+  font-weight: bold; 
+  cursor: pointer; 
+}
+
+.programado { background: #0066ff; color: #fff; }
+.hold { background: #ffcc00; color: #000; }
+.scrub { background: #ff4444; }
+.exito { background: #00cc66; }
+.fallo { background: #990000; }
+.envuelo { background: #0066ff; }
+
+#contadorActual { 
+  font-size: 2rem; 
+  margin: 1rem 0; 
+  font-weight: bold; 
+}
+
+#holdTime { 
+  font-size: 1rem; 
+  margin-bottom: 1rem; 
+  color: #ffcc00; 
+}
+
+#switchContainer { 
+  margin: 1rem 0; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  gap: 0.5rem;
+}
+
+/* Switch estilo moderno */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0;
+  right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px; 
+  width: 26px;
+  left: 4px; 
+  bottom: 4px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #00cc66; /* verde cuando activado */
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #00cc66;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+#labelTelemetria {
+  font-weight: bold;
+  vertical-align: middle;
+  font-size: 1rem;
+  color: #ff4444; /* rojo por defecto desactivado */
+}
+
+/* Estilo para mostrar ID del lanzamiento */
+#lanzamientoId {
+  font-size: 0.9rem; 
+  color: #00ffcc; 
+  margin-bottom: 1rem; 
+  display: block; 
+}
+
+/* Formulario de T-0 */
+form {
+  background: #1a1a1a;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  display: inline-block;
+}
+
+input[type="date"], input[type="time"] {
+  width: 150px;
+}
+
   </style>
 </head>
 <body>
@@ -245,6 +281,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     <select id="selectorMision">
       <option value="">-- Selecciona una misión --</option>
     </select>
+  </div>
+
+  <p id="lanzamientoId">ID Seleccionado: --</p>
+
+  <div id="switchContainer">
+    <input type="checkbox" id="switchTelemetria">
+    <span id="labelTelemetria">Telemetría DESACTIVADA</span>
   </div>
 
   <p><strong>Estado actual:</strong> <span id="estadoActual">Desconocido</span></p>
