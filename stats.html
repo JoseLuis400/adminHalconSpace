@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estadísticas Halcon Space</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #0d0d0d;
+      color: #f1f1f1;
+      margin: 0;
+      padding: 2rem;
+      text-align: center;
+    }
+    h1 { margin-bottom: 1rem; color: #00ffcc; }
+    .estadisticas-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 2rem;
+    }
+    .card {
+      background-color: #1a1a1a;
+      border-radius: 8px;
+      padding: 1rem 2rem;
+      min-width: 250px;
+      box-shadow: 0 0 10px rgba(0,255,204,0.3);
+    }
+    .card h2 { margin-top: 0; margin-bottom: 0.8rem; color: #00ffcc; }
+    .dato { font-size: 1.1rem; margin: 0.3rem 0; }
+    .exitoso { color: #00cc66; font-weight: bold; }
+    .fallido { color: #ff4444; font-weight: bold; }
+    .chart-container { width: 100%; height: 150px; margin-bottom: 1rem; }
+    input[type="number"] { width: 60px; margin-left: 5px; border-radius:4px; border:none; text-align:center; }
+    button { margin-left:5px; padding:0.3rem 0.6rem; border-radius:4px; border:none; cursor:pointer; background-color:#0066ff; color:#fff; }
+  </style>
+</head>
+<body>
+  <h1>📊 Estadísticas Halcon Space</h1>
+
+  <div class="estadisticas-container">
+
+    <!-- Aterrizajes -->
+    <div class="card" id="aterrizajes-card">
+      <h2>Aterrizajes</h2>
+      <div class="chart-container"><canvas id="chartAterrizajes"></canvas></div>
+      <p class="dato">Exitosos: <span class="exitoso" id="aterrizajes-exitosos">--</span>
+        <input type="number" id="aterrizajes-exitosos-input"><button onclick="updateStat('aterrizajes','exitosos')">Guardar</button></p>
+      <p class="dato">Fallidos: <span class="fallido" id="aterrizajes-fallidos">--</span>
+        <input type="number" id="aterrizajes-fallidos-input"><button onclick="updateStat('aterrizajes','fallidos')">Guardar</button></p>
+    </div>
+
+    <!-- Lanzamientos -->
+    <div class="card" id="lanzamientos-card">
+      <h2>Lanzamientos</h2>
+      <div class="chart-container"><canvas id="chartLanzamientos"></canvas></div>
+      <p class="dato">Exitosos: <span class="exitoso" id="lanzamientos-exitosos">--</span>
+        <input type="number" id="lanzamientos-exitosos-input"><button onclick="updateStat('lanzamientos','exitosos')">Guardar</button></p>
+      <p class="dato">Fallidos: <span class="fallido" id="lanzamientos-fallidos">--</span>
+        <input type="number" id="lanzamientos-fallidos-input"><button onclick="updateStat('lanzamientos','fallidos')">Guardar</button></p>
+    </div>
+
+    <!-- Falcon 9 -->
+    <div class="card" id="falcon9-card">
+      <h2>Falcon 9</h2>
+      <div class="chart-container"><canvas id="chartFalcon9"></canvas></div>
+      <p class="dato">Exitosos: <span class="exitoso" id="falcon9-exitosos">--</span>
+        <input type="number" id="falcon9-exitosos-input"><button onclick="updateStat('vuelosVehiculos.falcon9','exitosos')">Guardar</button></p>
+      <p class="dato">Fallidos: <span class="fallido" id="falcon9-fallidos">--</span>
+        <input type="number" id="falcon9-fallidos-input"><button onclick="updateStat('vuelosVehiculos.falcon9','fallidos')">Guardar</button></p>
+    </div>
+
+    <!-- Falcon Heavy -->
+    <div class="card" id="falconHeavy-card">
+      <h2>Falcon Heavy</h2>
+      <div class="chart-container"><canvas id="chartFalconHeavy"></canvas></div>
+      <p class="dato">Exitosos: <span class="exitoso" id="falconHeavy-exitosos">--</span>
+        <input type="number" id="falconHeavy-exitosos-input"><button onclick="updateStat('vuelosVehiculos.falconHeavy','exitosos')">Guardar</button></p>
+      <p class="dato">Fallidos: <span class="fallido" id="falconHeavy-fallidos">--</span>
+        <input type="number" id="falconHeavy-fallidos-input"><button onclick="updateStat('vuelosVehiculos.falconHeavy','fallidos')">Guardar</button></p>
+    </div>
+
+    <!-- Dragon General -->
+    <div class="card" id="dragon-general-card">
+      <h2>Dragon (General)</h2>
+      <div class="chart-container"><canvas id="chartDragonGeneral"></canvas></div>
+      <p class="dato">Exitosos: <span class="exitoso" id="dragon-general-exitosos">--</span></p>
+      <p class="dato">Fallidos: <span class="fallido" id="dragon-general-fallidos">--</span></p>
+    </div>
+
+    <!-- Crew Dragon -->
+    <div class="card" id="crewDragon-card">
+      <h2>Crew Dragon</h2>
+      <div class="chart-container"><canvas id="chartCrewDragon"></canvas></div>
+      <p class="dato">Exitosos: <span class="exitoso" id="crewDragon-exitosos">--</span>
+        <input type="number" id="crewDragon-exitosos-input"><button onclick="updateStat('vuelosVehiculos.dragon.crewDragon','exitosos')">Guardar</button></p>
+      <p class="dato">Fallidos: <span class="fallido" id="crewDragon-fallidos">--</span>
+        <input type="number" id="crewDragon-fallidos-input"><button onclick="updateStat('vuelosVehiculos.dragon.crewDragon','fallidos')">Guardar</button></p>
+    </div>
+
+    <!-- Cargo Dragon -->
+    <div class="card" id="cargoDragon-card">
+      <h2>Cargo Dragon</h2>
+      <div class="chart-container"><canvas id="chartCargoDragon"></canvas></div>
+      <p class="dato">Exitosos: <span class="exitoso" id="cargoDragon-exitosos">--</span>
+        <input type="number" id="cargoDragon-exitosos-input"><button onclick="updateStat('vuelosVehiculos.dragon.cargoDragon','exitosos')">Guardar</button></p>
+      <p class="dato">Fallidos: <span class="fallido" id="cargoDragon-fallidos">--</span>
+        <input type="number" id="cargoDragon-fallidos-input"><button onclick="updateStat('vuelosVehiculos.dragon.cargoDragon','fallidos')">Guardar</button></p>
+    </div>
+
+    <!-- Gráfico de barras apiladas -->
+    <div class="card" id="vuelos-stacked-card" style="width: 100%;">
+      <h2>Vuelos y Aterrizajes</h2>
+      <div class="chart-container" style="height:350px;">
+        <canvas id="chartVuelosStacked"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiLwfsjdMP-IlEoE5JugyFvmaQLFC0",
+      authDomain: "halcon-space-348e7.firebaseapp.com",
+      projectId: "halcon-space-348e7",
+      storageBucket: "halcon-space-348e7.firebasestorage.app",
+      messagingSenderId: "741724706453",
+      appId: "1:741724706453:web:519531e63f2b923f952d9c",
+      measurementId: "G-VG1Y2YMY4W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const ref = doc(db,"estadisticas","general");
+
+    const createChart = (id, type='doughnut') => new Chart(document.getElementById(id), {
+      type,
+      data: { labels: ['Exitosos','Fallidos'], datasets: [{ data: [0,0], backgroundColor: ['#00cc66','#ff4444'] }] },
+      options: { responsive: true }
+    });
+
+    const chartAterrizajes = createChart("chartAterrizajes");
+    const chartLanzamientos = createChart("chartLanzamientos");
+    const chartFalcon9 = createChart("chartFalcon9");
+    const chartFalconHeavy = createChart("chartFalconHeavy");
+    const chartDragonGeneral = createChart("chartDragonGeneral");
+    const chartCrewDragon = createChart("chartCrewDragon");
+    const chartCargoDragon = createChart("chartCargoDragon");
+
+    // Gráfico apilado
+    const chartVuelosStacked = new Chart(document.getElementById("chartVuelosStacked"), {
+      type: 'bar',
+      data: {
+        labels: ['Falcon 9', 'Falcon Heavy', 'Crew Dragon', 'Cargo Dragon', 'Aterrizajes'],
+        datasets: [
+          { label: 'Exitosos', backgroundColor: '#00cc66', data: [0,0,0,0,0] },
+          { label: 'Fallidos', backgroundColor: '#ff4444', data: [0,0,0,0,0] }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+      }
+    });
+
+    const updateCard = (cardId, chart, data) => {
+      const exitosos = data?.exitosos ?? 0;
+      const fallidos = data?.fallidos ?? 0;
+      document.getElementById(`${cardId}-exitosos`).textContent = exitosos;
+      document.getElementById(`${cardId}-fallidos`).textContent = fallidos;
+      const inputEx = document.getElementById(`${cardId}-exitosos-input`);
+      const inputFa = document.getElementById(`${cardId}-fallidos-input`);
+      if(inputEx) inputEx.value = exitosos;
+      if(inputFa) inputFa.value = fallidos;
+      chart.data.datasets[0].data = [exitosos, fallidos];
+      chart.update();
+    };
+
+    onSnapshot(ref, snap => {
+      if(!snap.exists()) return;
+      const d = snap.data();
+      const dragon = d.vuelosVehiculos?.dragon || {};
+
+      if(d.aterrizajes) updateCard('aterrizajes', chartAterrizajes, d.aterrizajes);
+      if(d.lanzamientos) updateCard('lanzamientos', chartLanzamientos, d.lanzamientos);
+      if(d.vuelosVehiculos?.falcon9) updateCard('falcon9', chartFalcon9, d.vuelosVehiculos.falcon9);
+      if(d.vuelosVehiculos?.falconHeavy) updateCard('falconHeavy', chartFalconHeavy, d.vuelosVehiculos.falconHeavy);
+
+      const exitososGeneral = (dragon.crewDragon?.exitosos || 0) + (dragon.cargoDragon?.exitosos || 0);
+      const fallidosGeneral = (dragon.crewDragon?.fallidos || 0) + (dragon.cargoDragon?.fallidos || 0);
+      updateCard('dragon-general', chartDragonGeneral, {exitosos: exitososGeneral, fallidos: fallidosGeneral});
+      if(dragon.crewDragon) updateCard('crewDragon', chartCrewDragon, dragon.crewDragon);
+      if(dragon.cargoDragon) updateCard('cargoDragon', chartCargoDragon, dragon.cargoDragon);
+
+      // Actualizar gráfico apilado
+      chartVuelosStacked.data.datasets[0].data = [
+        d.vuelosVehiculos?.falcon9?.exitosos || 0,
+        d.vuelosVehiculos?.falconHeavy?.exitosos || 0,
+        dragon.crewDragon?.exitosos || 0,
+        dragon.cargoDragon?.exitosos || 0,
+        d.aterrizajes?.exitosos || 0
+      ];
+      chartVuelosStacked.data.datasets[1].data = [
+        d.vuelosVehiculos?.falcon9?.fallidos || 0,
+        d.vuelosVehiculos?.falconHeavy?.fallidos || 0,
+        dragon.crewDragon?.fallidos || 0,
+        dragon.cargoDragon?.fallidos || 0,
+        d.aterrizajes?.fallidos || 0
+      ];
+      chartVuelosStacked.update();
+    });
+
+    window.updateStat = async (path, tipo) => {
+      const key = path.replace(/\./g, '_');
+      const input = document.getElementById(`${key}-${tipo}-input`);
+      const valor = parseInt(input.value) || 0;
+      await updateDoc(ref, { [path + '.' + tipo]: valor });
+      console.log(`✅ ${path}.${tipo} actualizado a ${valor}`);
+    };
+  </script>
+</body>
+</html>
