@@ -106,6 +106,56 @@ document.addEventListener("DOMContentLoaded", async () => {
     labelTelemetria.textContent = switchTelemetria.checked ? "Telemetría ACTIVADA" : "Telemetría DESACTIVADA";
   }
 
+    // ===== Acciones rápidas =====
+    const botonesEstado = document.querySelectorAll("button[data-estado]");
+  const reciclarBtn = document.getElementById("reciclarBtn");
+
+  botonesEstado.forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!misionActual) return alert("⚠️ Selecciona una misión primero");
+      const nuevoEstado = btn.dataset.estado;
+
+      let updateData = { estado: nuevoEstado };
+
+      // Si es HOLD o SCRUB guardamos la hora del evento
+      if (nuevoEstado === "hold" || nuevoEstado === "scrub") {
+        updateData.holdTime = new Date().toISOString();
+      } else {
+        updateData.holdTime = null;
+      }
+
+      await updateDoc(doc(db, "lanzamientos", misionActual.id), updateData);
+
+      misionActual.estado = nuevoEstado;
+      misionActual.holdTime = updateData.holdTime;
+
+      document.getElementById("estadoActual").textContent = nuevoEstado.toUpperCase();
+      document.getElementById("holdTime").textContent =
+        updateData.holdTime ? `Hora HOLD/SCRUB: ${new Date(updateData.holdTime).toLocaleString()}` : "";
+
+      console.log(`✅ Estado actualizado a: ${nuevoEstado}`);
+    });
+  });
+
+  // Reciclar → volver al estado programado y resetear holdTime
+  reciclarBtn.addEventListener("click", async () => {
+    if (!misionActual) return alert("⚠️ Selecciona una misión primero");
+
+    await updateDoc(doc(db, "lanzamientos", misionActual.id), {
+      estado: "programado",
+      holdTime: null
+    });
+
+    misionActual.estado = "programado";
+    misionActual.holdTime = null;
+
+    document.getElementById("estadoActual").textContent = "Programado";
+    document.getElementById("holdTime").textContent = "";
+
+    console.log("♻️ Lanzamiento reciclado a 'Programado'");
+  });
+
+
   // ===== Switch Telemetría =====
   switchTelemetria.addEventListener("change", async () => {
     if(!misionActual) return alert("⚠️ Selecciona una misión primero");
