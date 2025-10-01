@@ -117,8 +117,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       let updateData = { estado: nuevoEstado };
 
-      // Si es HOLD o SCRUB guardamos la hora del evento
-      if (nuevoEstado === "hold" || nuevoEstado === "scrub") {
+      // Si es HOLD guardamos la hora del evento
+      if (nuevoEstado === "hold") {
         updateData.holdTime = new Date().toISOString();
       } else {
         updateData.holdTime = null;
