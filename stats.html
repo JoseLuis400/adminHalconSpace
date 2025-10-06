@@ -216,12 +216,18 @@
     });
 
     window.updateStat = async (path, tipo) => {
-      const key = path.replace(/\./g, '_');
-      const input = document.getElementById(`${key}-${tipo}-input`);
-      const valor = parseInt(input.value) || 0;
-      await updateDoc(ref, { [path + '.' + tipo]: valor });
-      console.log(`✅ ${path}.${tipo} actualizado a ${valor}`);
-    };
+  const partes = path.split('.');
+  const key = partes[partes.length - 1]; // toma la última parte del path
+  const input = document.getElementById(`${key}-${tipo}-input`);
+  if (!input) {
+    console.error(`❌ No se encontró el input para ${key}-${tipo}-input`);
+    return;
+  }
+  const valor = parseInt(input.value) || 0;
+  await updateDoc(ref, { [path + '.' + tipo]: valor });
+  console.log(`✅ ${path}.${tipo} actualizado a ${valor}`);
+};
+
   </script>
 </body>
 </html>
