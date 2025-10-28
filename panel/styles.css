@@ -1,0 +1,31 @@
+:root{
+    --bg:#071024; --panel:#0b1220; --muted:#94a3b8; --accent:#fb923c; --glass: rgba(255,255,255,0.03);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,var(--bg),#031021);color:#e6eef8}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(90deg, rgba(255,255,255,0.02), transparent);backdrop-filter:blur(4px);position:sticky;top:0;z-index:10}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand img{width:36px;height:36px}
+  .brand h1{font-size:18px;margin:0}
+  .clock{color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:18px;padding:18px;max-width:1200px;margin:18px auto}
+  .panel{background:var(--panel);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.02)}
+  .countdown{font-size:32px;font-weight:700;text-align:center;padding:10px;background:var(--glass);border-radius:8px}
+  .controls{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:10px}
+  .controls input{width:80px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  .controls button{padding:8px 12px;border-radius:8px;border:none;cursor:pointer;background:var(--accent);color:#041024;font-weight:600}
+  .stations{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .station{display:flex;align-items:center;justify-content:space-between;padding:10px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent)}
+  .station .left{display:flex;align-items:center;gap:12px}
+  .dot{width:14px;height:14px;border-radius:50%;display:inline-block}
+  .dot.go{background:var(--accent)}
+  .dot.nogo{background:#ef4444}
+  .station button{padding:6px 10px;border-radius:8px;border:none;cursor:pointer}
+  .telemetry-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .telemetry-log{margin-top:10px;max-height:140px;overflow:auto;background:rgba(0,0,0,0.12);padding:8px;border-radius:6px;font-size:13px;color:var(--muted)}
+  .footer{text-align:center;padding:12px;color:var(--muted);font-size:13px}
+  .legend{margin-top:8px;color:var(--muted)}
+  .hint{color:var(--muted);font-size:13px}
+  
+  @media(max-width:780px){.grid{grid-template-columns:1fr}}
+  

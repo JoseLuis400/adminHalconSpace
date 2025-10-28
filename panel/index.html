@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Control de misión de Halcon Space</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><rect width='36' height='36' rx='6' fill='%230f172a'/><path d='M6 30 L18 6 L30 30 Z' fill='%23fb923c'/></svg>" alt="logo">
+      <h1>Control de misión de Halcon Space</h1>
+    </div>
+    <div class="clock" id="local-clock">--:--:--</div>
+  </header>
+
+  <main class="grid">
+    <section class="panel" id="countdown-panel">
+      <h2>Cuenta regresiva</h2>
+      <div class="countdown" id="countdown">00:00:00</div>
+      <div class="controls">
+        <label>Set countdown (min): <input type="number" id="countdown-min" min="1" value="10"></label>
+        <button id="start-count">Iniciar</button>
+        <button id="stop-count">Parar</button>
+      </div>
+    </section>
+
+    <section class="panel" id="status-panel">
+      <h2>Estado GO / NO GO</h2>
+      <div id="stations" class="stations"></div>
+      <div class="legend"><span class="dot go"></span> GO &nbsp; <span class="dot nogo"></span> NO GO</div>
+    </section>
+
+    <section class="panel" id="telemetry-panel">
+      <h2>Telemetría (simulada)</h2>
+      <div class="telemetry-grid">
+        <div>Altitud: <strong id="alt">-</strong></div>
+        <div>Velocidad: <strong id="vel">-</strong></div>
+        <div>Actitud (pitch): <strong id="pitch">-</strong></div>
+        <div>Combustible: <strong id="fuel">-</strong></div>
+      </div>
+      <div class="telemetry-log" id="telemetry-log"></div>
+    </section>
+
+    <section class="panel" id="actions-panel">
+      <h2>Acciones</h2>
+      <button id="simulate-update">Simular update</button>
+      <button id="reset">Reset demo</button>
+      <p class="hint">Más abajo: instrucciones para conectar con Firestore cuando quieras.</p>
+    </section>
+  </main>
+
+  <footer class="footer">Demo local — datos simulados. Diseñado para José Luis y amigo. ❤️</footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

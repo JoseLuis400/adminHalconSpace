@@ -24,7 +24,7 @@
       font-family: 'Helvetica Neue', Arial, sans-serif;
       font-weight: bold;
       min-width: 200px;
-      max-width: 200px;
+      max-width: 300px;
       white-space: nowrap;
       text-align: center;
     }
@@ -108,12 +108,25 @@
     let intervalId = null;
 
     function formatearTiempo(diffSegundos) {
-      const esPositivo = diffSegundos >= 0;
-      const horas = Math.floor(Math.abs(diffSegundos) / 3600);
-      const minutos = Math.floor((Math.abs(diffSegundos) % 3600) / 60);
-      const segundos = Math.floor(Math.abs(diffSegundos) % 60);
-      return `${esPositivo ? "T+" : "T-"} ${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
-    }
+  const esPositivo = diffSegundos >= 0;
+  const absSegundos = Math.abs(diffSegundos);
+
+  const dias = Math.floor(absSegundos / 86400); // 86400 segundos en un día
+  const horas = Math.floor((absSegundos % 86400) / 3600);
+  const minutos = Math.floor((absSegundos % 3600) / 60);
+  const segundos = Math.floor(absSegundos % 60);
+
+  let tiempoFormateado = "";
+
+  if (dias > 0) {
+    tiempoFormateado = ` ${dias.toString().padStart(2,'0')} / ${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+  } else {
+    tiempoFormateado = `${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+  }
+
+  return `${esPositivo ? "T+" : "T-"} ${tiempoFormateado}`;
+}
+
 
     function actualizarTimer() {
       if (!objetivoUTC) return;
