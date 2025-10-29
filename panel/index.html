@@ -1,58 +1,613 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Control de misión de Halcon Space</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Lanzamiento</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><rect width='36' height='36' rx='6' fill='%230f172a'/><path d='M6 30 L18 6 L30 30 Z' fill='%23fb923c'/></svg>" alt="logo">
-      <h1>Control de misión de Halcon Space</h1>
+    <div class="container">
+        <div class="header">
+            <div class="mission-name" id="missionName">CONTROL DE LANZAMIENTO</div>
+            <div class="countdown" id="countdown">T-00:00:00</div>
+            <div class="status programado" id="missionStatus"></div>
+            <div class="hold-info" id="holdInfo"></div>
+        </div>
+
+        <div id="content">
+            <div class="mission-selector">
+                <h2 style="margin-bottom: 20px; font-size: 1.5em;">SELECCIONAR MISIÓN</h2>
+                <select id="missionSelect" 
+                    style="width: 100%; padding: 15px; font-size: 1.2em; font-family: 'Courier New', monospace; 
+                    background: rgba(0,0,0,0.6); border: 2px solid #fff; color: #fff; border-radius: 5px; margin-bottom: 15px; cursor: pointer;">
+                    <option value="">Cargando misiones...</option>
+                </select>
+                <button id="loadMissionBtn" style="width: 100%; padding: 15px; font-size: 1.2em; font-weight: bold; 
+                    background: rgba(0,255,0,0.2); border: 2px solid #fff; color: #fff; border-radius: 5px; 
+                    cursor: pointer; font-family: 'Courier New', monospace;">
+                    CARGAR MISIÓN
+                </button>
+                <div id="errorMessage" style="margin-top: 15px; color: #ff0000; display: none;"></div>
+            </div>
+        </div>
     </div>
-    <div class="clock" id="local-clock">--:--:--</div>
-  </header>
 
-  <main class="grid">
-    <section class="panel" id="countdown-panel">
-      <h2>Cuenta regresiva</h2>
-      <div class="countdown" id="countdown">00:00:00</div>
-      <div class="controls">
-        <label>Set countdown (min): <input type="number" id="countdown-min" min="1" value="10"></label>
-        <button id="start-count">Iniciar</button>
-        <button id="stop-count">Parar</button>
-      </div>
-    </section>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, getDocs, doc, setDoc, onSnapshot, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-    <section class="panel" id="status-panel">
-      <h2>Estado GO / NO GO</h2>
-      <div id="stations" class="stations"></div>
-      <div class="legend"><span class="dot go"></span> GO &nbsp; <span class="dot nogo"></span> NO GO</div>
-    </section>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+            authDomain: "halcon-space-348e7.firebaseapp.com",
+            projectId: "halcon-space-348e7",
+            storageBucket: "halcon-space-348e7.firebasestorage.app",
+            messagingSenderId: "741724706453",
+            appId: "1:741724706453:web:519531e63f2b923f952d9c",
+            measurementId: "G-VG1Y2YMY4W"
+        };
 
-    <section class="panel" id="telemetry-panel">
-      <h2>Telemetría (simulada)</h2>
-      <div class="telemetry-grid">
-        <div>Altitud: <strong id="alt">-</strong></div>
-        <div>Velocidad: <strong id="vel">-</strong></div>
-        <div>Actitud (pitch): <strong id="pitch">-</strong></div>
-        <div>Combustible: <strong id="fuel">-</strong></div>
-      </div>
-      <div class="telemetry-log" id="telemetry-log"></div>
-    </section>
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-    <section class="panel" id="actions-panel">
-      <h2>Acciones</h2>
-      <button id="simulate-update">Simular update</button>
-      <button id="reset">Reset demo</button>
-      <p class="hint">Más abajo: instrucciones para conectar con Firestore cuando quieras.</p>
-    </section>
-  </main>
+        const systems = [
+            { id: 'propulsion', name: 'Propulsión', type: 'go-nogo' },
+            { id: 'propelente', name: 'Carga de propelente', type: 'go-nogo' },
+            { id: 'vehiculo', name: 'Vehículo', type: 'go-nogo' },
+            { id: 'navigation', name: 'Navegación', type: 'go-nogo' },
+            { id: 'communications', name: 'Comunicaciones', type: 'go-nogo' },
+            { id: 'fts1', name: 'FTS etapa 1', type: 'armed' },
+            { id: 'fts2', name: 'FTS etapa 2', type: 'armed' },
+            { id: 'telemetria', name: 'Telemetria', type: 'go-nogo' },
+            { id: 'meteorology', name: 'Meteorología', type: 'go-nogo' },
+            { id: 'range', name: 'Range', type: 'go-nogo' },
+            { id: 'payload', name: 'Carga Útil', type: 'go-nogo' },
+            { id: 'director', name: 'Director de vuelo', type: 'go-nogo' }
+        ];
 
-  <footer class="footer">Demo local — datos simulados. Diseñado para José Luis y amigo. ❤️</footer>
+        let launchId = null;
+        let launchTime = null;
+        let countdownInterval = null;
+        let systemStates = {};
+        let availableMissions = [];
+        let telemetryData = {
+            altitude_m3: 0,
+            apogeo: 0,
+            inclination: 0,
+            perigeo: 0,
+            velocity_kmh: 0
+        };
+        let currentMission = null;
+        let frozenTime = null;
 
-  <script src="app.js"></script>
+        systems.forEach(sys => {
+            systemStates[sys.id] = sys.type === 'armed' ? 'not-armed' : 'nogo';
+        });
+
+        function getLaunchUTC(fechaStr, timeStr) {
+            const [day, month, year] = fechaStr.split("/").map(Number);
+            const [hours = 0, minutes = 0, seconds = 0] = (timeStr || "00:00:00").split(":").map(Number);
+            return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+        }
+
+        function calcularContador(fechaStr, timeStr, estado, holdTime) {
+            const ahora = (estado === "hold" || estado === "scrub") && holdTime ? new Date(holdTime) : new Date();
+            const lanzamiento = getLaunchUTC(fechaStr, timeStr);
+            let diff = lanzamiento - ahora;
+            let signo = "T-";
+            
+            if(diff < 0){
+                signo = "T+";
+                diff = Math.abs(diff);
+            }
+            
+            const dias = Math.floor(diff / 86400000);
+            const horas = String(Math.floor((diff % 86400000) / 3600000)).padStart(2, "0");
+            const minutos = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
+            const segundos = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
+            
+            return dias > 0 ? `${signo}${dias}d ${horas}:${minutos}:${segundos}` : `${signo}${horas}:${minutos}:${segundos}`;
+        }
+
+        async function loadAvailableMissions() {
+            try {
+                const launchesRef = collection(db, 'lanzamientos');
+                const snapshot = await getDocs(launchesRef);
+                
+                availableMissions = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const status = data.estado ? data.estado.toLowerCase() : 'desconocido';
+                    
+                    if (status !== 'exito' && status !== 'éxito' && status !== 'fallo') {
+                        availableMissions.push({
+                            id: doc.id,
+                            name: data.nombre || 'Sin nombre',
+                            status: data.estado || 'desconocido',
+                            fecha: data.fecha,
+                            timeUTC: data.timeUTC || '00:00:00'
+                        });
+                    }
+                });
+
+                availableMissions.sort((a, b) => getLaunchUTC(a.fecha, a.timeUTC) - getLaunchUTC(b.fecha, b.timeUTC));
+
+                const select = document.getElementById('missionSelect');
+                select.innerHTML = '<option value="">-- Seleccione una misión --</option>';
+                
+                if (availableMissions.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = "No hay misiones programadas";
+                    select.appendChild(option);
+                } else {
+                    availableMissions.forEach(mission => {
+                        const option = document.createElement('option');
+                        option.value = mission.id;
+                        option.textContent = `${mission.name} (${mission.status.toUpperCase()})`;
+                        select.appendChild(option);
+                    });
+                }
+
+            } catch (error) {
+                console.error('Error al cargar misiones:', error);
+                const errorMsg = document.getElementById('errorMessage');
+                errorMsg.textContent = 'ERROR: No se pudieron cargar las misiones';
+                errorMsg.style.display = 'block';
+            }
+        }
+
+        async function loadLaunchData() {
+            const missionId = document.getElementById('missionSelect').value;
+            const errorMsg = document.getElementById('errorMessage');
+            
+            if (!missionId) {
+                errorMsg.textContent = 'ERROR: Debe seleccionar una misión';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            errorMsg.style.display = 'none';
+            document.getElementById('content').innerHTML = '<div class="loading">Cargando misión...</div>';
+
+            try {
+                const launchRef = doc(db, 'lanzamientos', missionId);
+                
+                launchId = missionId;
+
+                onSnapshot(launchRef, (doc) => {
+                    if (!doc.exists()) {
+                        document.getElementById('content').innerHTML = `
+                            <div class="error">
+                                ERROR: La misión ${missionId} no existe
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    const data = doc.data();
+                    currentMission = data;
+                    
+                    document.getElementById('missionName').textContent = data.nombre || 'MISIÓN DESCONOCIDA';
+                    
+                    const statusElem = document.getElementById('missionStatus');
+                    const estado = (data.estado || 'programado').toLowerCase().replace(/ /g, '');
+                    statusElem.textContent = (data.estado || 'PROGRAMADO').toUpperCase();
+                    statusElem.className = `status ${estado}`;
+
+                    const holdInfoElem = document.getElementById('holdInfo');
+                    if (data.holdTime && (estado === 'hold' || estado === 'scrub')) {
+                        holdInfoElem.textContent = `Hora HOLD/SCRUB: ${new Date(data.holdTime).toLocaleString()}`;
+                    } else {
+                        holdInfoElem.textContent = '';
+                    }
+
+                    if (!countdownInterval) {
+                        startCountdown();
+                        renderSystems();
+                        loadControlCenterData();
+                    }
+                });
+
+            } catch (error) {
+                console.error('Error al cargar datos:', error);
+                document.getElementById('content').innerHTML = `
+                    <div class="error">
+                        ERROR: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function showMissionSelector() {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+
+            systems.forEach(sys => {
+                systemStates[sys.id] = sys.type === 'armed' ? 'not-armed' : 'nogo';
+            });
+
+            document.getElementById('content').innerHTML = `
+                <div class="mission-selector">
+                    <h2 style="margin-bottom: 20px; font-size: 1.5em;">SELECCIONAR MISIÓN</h2>
+                    <select id="missionSelect" 
+                        style="width: 100%; padding: 15px; font-size: 1.2em; font-family: 'Courier New', monospace; 
+                        background: rgba(0,0,0,0.6); border: 2px solid #00ff00; color: #00ff00; border-radius: 5px; margin-bottom: 15px; cursor: pointer;">
+                        <option value="">-- Seleccione una misión --</option>
+                    </select>
+                    <button id="loadMissionBtn" style="width: 100%; padding: 15px; font-size: 1.2em; font-weight: bold; 
+                        background: rgba(0,255,0,0.2); border: 2px solid #00ff00; color: #00ff00; border-radius: 5px; 
+                        cursor: pointer; font-family: 'Courier New', monospace;">
+                        CARGAR MISIÓN
+                    </button>
+                    <div id="errorMessage" style="margin-top: 15px; color: #ff0000; display: none;"></div>
+                </div>
+            `;
+
+            loadAvailableMissions().then(() => {
+                document.getElementById('loadMissionBtn').addEventListener('click', loadLaunchData);
+            });
+
+            document.getElementById('missionName').textContent = 'CONTROL DE LANZAMIENTO';
+            document.getElementById('countdown').textContent = 'T-00:00:00';
+            document.getElementById('missionStatus').textContent = '';
+            document.getElementById('holdInfo').textContent = '';
+
+            const changeMissionBtn = document.querySelector('.change-mission-btn');
+            if (changeMissionBtn) {
+                changeMissionBtn.remove();
+            }
+        }
+
+        function startCountdown() {
+            if (countdownInterval) clearInterval(countdownInterval);
+
+            countdownInterval = setInterval(() => {
+                if (!currentMission) return;
+                
+                const contador = calcularContador(
+                    currentMission.fecha, 
+                    currentMission.timeUTC || '00:00:00',
+                    currentMission.estado,
+                    currentMission.holdTime
+                );
+                
+                document.getElementById('countdown').textContent = contador;
+            }, 1000);
+        }
+
+        async function loadControlCenterData() {
+            try {
+                const controlCenterRef = doc(db, 'telemetria', 'ControlCenter');
+                
+                onSnapshot(controlCenterRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        systemStates = { ...systemStates, ...data };
+                        updateSystemButtons();
+                        updateSummary();
+                    }
+                });
+            } catch (error) {
+                console.error('Error al cargar Control Center:', error);
+            }
+        }
+
+        async function loadTelemetryData() {
+            try {
+                const telemetryRef = doc(db, 'telemetria', 'estado_actual');
+                
+                onSnapshot(telemetryRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        telemetryData = {
+                            altitude_m3: data.altitude_m3 || 0,
+                            apogeo: data.apogeo || 0,
+                            inclination: data.inclination || 0,
+                            perigeo: data.perigeo || 0,
+                            velocity_kmh: data.velocity_kmh || 0
+                        };
+                        updateTelemetryDisplay();
+                    }
+                });
+            } catch (error) {
+                console.error('Error al cargar telemetría:', error);
+            }
+        }
+
+        function updateTelemetryDisplay() {
+            const altitudeEl = document.getElementById('telemetry-altitude');
+            const velocityEl = document.getElementById('telemetry-velocity');
+            const apogeoEl = document.getElementById('telemetry-apogeo');
+            const perigeoEl = document.getElementById('telemetry-perigeo');
+            const inclinationEl = document.getElementById('telemetry-inclination');
+
+            if (altitudeEl) altitudeEl.textContent = telemetryData.altitude_m3.toLocaleString('es-UY');
+            if (velocityEl) velocityEl.textContent = telemetryData.velocity_kmh.toLocaleString('es-UY');
+            if (apogeoEl) apogeoEl.textContent = telemetryData.apogeo.toLocaleString('es-UY');
+            if (perigeoEl) perigeoEl.textContent = telemetryData.perigeo.toLocaleString('es-UY');
+            if (inclinationEl) inclinationEl.textContent = telemetryData.inclination.toFixed(2);
+        }
+
+        async function changeStatus(newStatus) {
+            if (!currentMission || !launchId) return;
+
+            let updateData = { estado: newStatus };
+
+            if (newStatus === 'hold' || newStatus === 'scrub') {
+                updateData.holdTime = new Date().toISOString();
+            } else if (newStatus === 'programado') {
+                updateData.holdTime = null;
+            }
+
+            try {
+                await updateDoc(doc(db, 'lanzamientos', launchId), updateData);
+                console.log(`✅ Estado actualizado a: ${newStatus}`);
+            } catch (error) {
+                console.error('Error al actualizar estado:', error);
+            }
+        }
+
+        async function updateT0(event) {
+            event.preventDefault();
+            
+            if (!currentMission || !launchId) {
+                alert('⚠️ No hay misión cargada');
+                return;
+            }
+
+            const fechaInput = document.getElementById('t0Fecha').value;
+            const horaInput = document.getElementById('t0Hora').value;
+
+            // Convertir de YYYY-MM-DD a DD/MM/YYYY
+            const [year, month, day] = fechaInput.split('-');
+            const fecha = `${day}/${month}/${year}`;
+
+            // Calcular utcTime en formato ISO
+            const utcTime = getLaunchUTC(fecha, horaInput).toISOString();
+
+            try {
+                await updateDoc(doc(db, 'lanzamientos', launchId), {
+                    fecha: fecha,
+                    timeUTC: horaInput,
+                    utcTime: utcTime
+                });
+                
+                console.log(`✅ T-0 actualizado: ${fecha} ${horaInput} UTC`);
+                return true;
+            } catch (error) {
+                console.error('Error al actualizar T-0:', error);
+                alert('❌ Error al actualizar T-0');
+                return false;
+            }
+        }
+
+        function openStatusModal() {
+            document.getElementById('statusModal').classList.add('active');
+        }
+
+        function closeStatusModal() {
+            document.getElementById('statusModal').classList.remove('active');
+        }
+
+        function openT0Modal() {
+            // Cargar valores actuales
+            if (currentMission) {
+                const [day, month, year] = currentMission.fecha.split('/');
+                document.getElementById('t0Fecha').value = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                document.getElementById('t0Hora').value = currentMission.timeUTC || '00:00:00';
+            }
+            document.getElementById('t0Modal').classList.add('active');
+        }
+
+        function closeT0Modal() {
+            document.getElementById('t0Modal').classList.remove('active');
+        }
+
+        async function changeStatusAndClose(newStatus) {
+            await changeStatus(newStatus);
+            closeStatusModal();
+        }
+
+        async function updateT0AndClose(event) {
+            event.preventDefault();
+            const success = await updateT0(event);
+            if (success) {
+                closeT0Modal();
+                alert('✅ T-0 actualizado correctamente');
+            }
+        }
+
+        // Cerrar modales al hacer click fuera
+        window.addEventListener('click', (event) => {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        });
+
+        function renderSystems() {
+            const html = `
+                <button class="change-mission-btn" onclick="showMissionSelector()">CAMBIAR MISIÓN</button>
+
+                <div class="telemetry-panel">
+                    <div class="telemetry-title">⚡ Telemetría en Tiempo Real ⚡</div>
+                    <div class="telemetry-grid">
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">Altitud</div>
+                            <div class="telemetry-value">
+                                <span id="telemetry-altitude">0</span>
+                                <span class="telemetry-unit">m</span>
+                            </div>
+                        </div>
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">Velocidad</div>
+                            <div class="telemetry-value">
+                                <span id="telemetry-velocity">0</span>
+                                <span class="telemetry-unit">km/h</span>
+                            </div>
+                        </div>
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">Apogeo</div>
+                            <div class="telemetry-value">
+                                <span id="telemetry-apogeo">0</span>
+                                <span class="telemetry-unit">m</span>
+                            </div>
+                        </div>
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">Perigeo</div>
+                            <div class="telemetry-value">
+                                <span id="telemetry-perigeo">0</span>
+                                <span class="telemetry-unit">m</span>
+                            </div>
+                        </div>
+                        <div class="telemetry-item">
+                            <div class="telemetry-label">Inclinación</div>
+                            <div class="telemetry-value">
+                                <span id="telemetry-inclination">0.00</span>
+                                <span class="telemetry-unit">°</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="systems-grid">
+                    ${systems.map(sys => `
+                        <div class="system-card">
+                            <div class="system-name">${sys.name}</div>
+                            <div class="button-group">
+                                ${sys.type === 'armed' ? `
+                                    <button class="status-btn armed" data-system="${sys.id}" data-status="armed">ARMADO</button>
+                                    <button class="status-btn nogo" data-system="${sys.id}" data-status="not-armed">NO ARMADO</button>
+                                ` : `
+                                    <button class="status-btn go" data-system="${sys.id}" data-status="go">GO</button>
+                                    <button class="status-btn nogo" data-system="${sys.id}" data-status="nogo">NO GO</button>
+                                `}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="summary">
+                    <div class="summary-title">Estado General</div>
+                    <div class="summary-status notready" id="overallStatus">NO GO PARA LANZAMIENTO</div>
+                </div>
+
+                <div class="control-buttons" style="padding-top: 50px;">
+                    <button class="control-open-btn" onclick="openStatusModal()">🎛️ Cambiar Estado</button>
+                    <button class="control-open-btn" onclick="openT0Modal()">🕐 Modificar T-0</button>
+                </div>
+
+                <!-- Modal de Estado -->
+                <div id="statusModal" class="modal">
+                    <div class="modal-content">
+                        <button class="modal-close" onclick="closeStatusModal()">×</button>
+                        <div class="modal-header">Cambiar Estado de Misión</div>
+                        <div class="modal-status-buttons">
+                            <button class="modal-status-btn programado" onclick="changeStatusAndClose('programado')">Programado</button>
+                            <button class="modal-status-btn hold" onclick="changeStatusAndClose('hold')">HOLD</button>
+                            <button class="modal-status-btn scrub" onclick="changeStatusAndClose('scrub')">SCRUB</button>
+                            <button class="modal-status-btn envuelo" onclick="changeStatusAndClose('en vuelo')">En Vuelo</button>
+                            <button class="modal-status-btn exito" onclick="changeStatusAndClose('exito')">Éxito</button>
+                            <button class="modal-status-btn fallo" onclick="changeStatusAndClose('fallo')">Fallo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal de T-0 -->
+                <div id="t0Modal" class="modal">
+                    <div class="modal-content">
+                        <button class="modal-close" onclick="closeT0Modal()">×</button>
+                        <div class="modal-header">Modificar T-0</div>
+                        <form class="modal-t0-form" onsubmit="updateT0AndClose(event)">
+                            <div class="modal-form-group">
+                                <label>Fecha (UTC)</label>
+                                <input type="date" id="t0Fecha" required>
+                            </div>
+                            <div class="modal-form-group">
+                                <label>Hora (UTC)</label>
+                                <input type="time" step="1" id="t0Hora" required>
+                            </div>
+                            <button type="submit" class="modal-submit-btn">Actualizar T-0</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('content').innerHTML = html;
+
+            document.querySelectorAll('.status-btn').forEach(btn => {
+                btn.addEventListener('click', handleSystemClick);
+            });
+
+            updateSystemButtons();
+            updateSummary();
+            loadTelemetryData();
+        }
+
+        async function handleSystemClick(e) {
+            const system = e.target.dataset.system;
+            const status = e.target.dataset.status;
+
+            systemStates[system] = status;
+            updateSystemButtons();
+            updateSummary();
+
+            try {
+                const controlCenterRef = doc(db, 'telemetria', 'ControlCenter');
+                await setDoc(controlCenterRef, systemStates, { merge: true });
+            } catch (error) {
+                console.error('Error al guardar en Firebase:', error);
+            }
+        }
+
+        function updateSystemButtons() {
+            systems.forEach(sys => {
+                const buttons = document.querySelectorAll(`[data-system="${sys.id}"]`);
+                buttons.forEach(btn => {
+                    const status = btn.dataset.status;
+                    if (systemStates[sys.id] === status) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            });
+        }
+
+        function updateSummary() {
+            const statusElement = document.getElementById('overallStatus');
+            if (!statusElement) return;
+
+            const allGo = systems.every(sys => {
+                if (sys.type === 'armed') {
+                    return systemStates[sys.id] === 'armed';
+                } else {
+                    return systemStates[sys.id] === 'go';
+                }
+            });
+
+            if (allGo) {
+                statusElement.textContent = 'GO PARA LANZAMIENTO';
+                statusElement.className = 'summary-status ready';
+            } else {
+                statusElement.textContent = 'NO GO PARA LANZAMIENTO';
+                statusElement.className = 'summary-status notready';
+            }
+        }
+
+        loadAvailableMissions();
+        document.getElementById('loadMissionBtn').addEventListener('click', loadLaunchData);
+        
+        window.showMissionSelector = showMissionSelector;
+        window.changeStatus = changeStatus;
+        window.updateT0 = updateT0;
+        window.openStatusModal = openStatusModal;
+        window.closeStatusModal = closeStatusModal;
+        window.openT0Modal = openT0Modal;
+        window.closeT0Modal = closeT0Modal;
+        window.changeStatusAndClose = changeStatusAndClose;
+        window.updateT0AndClose = updateT0AndClose;
+    </script>
 </body>
 </html>
