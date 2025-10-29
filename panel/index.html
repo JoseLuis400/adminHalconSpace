@@ -71,7 +71,7 @@
         let systemStates = {};
         let availableMissions = [];
         let telemetryData = {
-            altitude_m3: 0,
+            altitude_m: 0,
             apogeo: 0,
             inclination: 0,
             perigeo: 0,
@@ -303,7 +303,7 @@
                     if (docSnap.exists()) {
                         const data = docSnap.data();
                         telemetryData = {
-                            altitude_m3: data.altitude_m3 || 0,
+                            altitude_m3: data.altitude_m || 0,
                             apogeo: data.apogeo || 0,
                             inclination: data.inclination || 0,
                             perigeo: data.perigeo || 0,
