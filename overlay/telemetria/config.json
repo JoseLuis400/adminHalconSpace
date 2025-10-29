@@ -1,0 +1,27 @@
+{
+    "altitudMax": 650,
+    "velocidadMax": 7500,
+    "distanciaMax": 0.05,
+    "rangeMax": 10,
+    "fuerzaGMax": 5,
+    "tempMax": 1800,
+    "missionName": "ORION TRAIL",
+    "status": "MISION EXITOSA",
+    "etapa": "",
+    "tiempo": {
+        "date": "19/09/2025",
+        "time": "19:50:23"
+    },
+    "estado": {
+        "hold": false,
+        "scrub": false,
+        "abort": false,
+        "exito": false,
+        "anomalia": false
+    },
+    "aviso": {
+        "active": false,
+        "title": "PHOENIX ASCENTION",
+        "message": "Acoplamiento exitoso del tercer módulo de la futura estación espacial Sodium Eagle. Tras mas de 4 días en órbita hemos logrado completar nuestro acoplamiento mas largo."
+    }
+}

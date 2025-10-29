@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Telemetry Overlay - Fuerza G y Temperatura</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: transparent;
+    }
+    canvas {
+      position: fixed;
+      bottom: -50px;
+      right: -110px;
+    }
+    .fondoDatos {
+      width: 600px;
+      height: 250px;
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      background: linear-gradient(to bottom left, rgba(50, 50, 50, 0.7) 0%, rgba(47, 54, 64, 0) 100%);
+      clip-path: polygon(40% 0, 100% 0, 100% 100%, 0 100%);
+    }
+    h3 {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      text-transform: uppercase;
+      position: fixed;
+      bottom: -10px;
+      width: 500px;
+      text-align: center;
+      right: 0px;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <h3 id="stageActual"></h3>
+  <div class="fondoDatos"></div>
+
+  <script>
+    // -------------------------------
+    // Configuración Firebase
+    // -------------------------------
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+      authDomain: "halcon-space-348e7.firebaseapp.com",
+      projectId: "halcon-space-348e7",
+      storageBucket: "halcon-space-348e7.firebasestorage.app",
+      messagingSenderId: "741724706453",
+      appId: "1:741724706453:web:519531e63f2b923f952d9c",
+      measurementId: "G-VG1Y2YMY4W"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // -------------------------------
+    // Variables de telemetría
+    // -------------------------------
+    let gForce = 0;
+    let maxG = 10;
+    let temperaturaActual = 0;
+    let temperaturaMaxima = 2126;
+    let etapaActual = "ETAPA DESCONOCIDA";
+
+    // Variables suavizadas
+    let gForceVisual = 0;
+    let tempVisual = 0;
+
+    // -------------------------------
+    // Escuchar documento de configuración
+    // -------------------------------
+    const docConfig = db.collection("telemetria").doc("config");
+    docConfig.onSnapshot((snap) => {
+      if (!snap.exists) return;
+      const data = snap.data();
+      maxG = data.fuerzaGMax || 10;
+      temperaturaMaxima = data.tempMax || 2126;
+      etapaActual = data.etapa || "ETAPA DESCONOCIDA";
+      document.getElementById("stageActual").textContent = "Telemetría " + etapaActual;
+    });
+
+    // -------------------------------
+    // Escuchar documento de estado actual
+    // -------------------------------
+    const docRef = db.collection("telemetria").doc("estado_actual");
+    docRef.onSnapshot((doc) => {
+      if (!doc.exists) return;
+      const datos = doc.data();
+      gForce = datos.fuerzaG || 0;
+      temperaturaActual = datos.temperatura_capsula || 0;
+    });
+
+    // -------------------------------
+    // p5.js
+    // -------------------------------
+    function setup() {
+      createCanvas(600, 300);
+      pixelDensity(2);
+    }
+
+    function draw() {
+      clear();
+      background(0, 0, 0, 0);
+
+      // Suavizado
+      gForceVisual = lerp(gForceVisual, gForce, 0.1);
+      tempVisual = lerp(tempVisual, temperaturaActual, 0.1);
+
+      const fuerzaParaMostrar = gForceVisual > 0 ? gForceVisual.toFixed(1) : "0.0";
+
+      // Arco y texto Fuerza G
+      drawGForceArc(350, 140, 80, gForceVisual);
+      drawTelemetryCircle(350, 140, 80, "FUERZA G", fuerzaParaMostrar, "g");
+
+      // Arco y texto Temperatura
+      drawTempArc(150, 140, 80, tempVisual);
+      drawTelemetryCircle(150, 140, 80, "TEMP", tempVisual.toFixed(0), "°C");
+    }
+
+    // -------------------------------
+    // Dibujo de arcos
+    // -------------------------------
+    function drawGForceArc(x, y, radius, valor) {
+      let fillLevel = constrain(valor / maxG, 0, 1);
+      let startAngle = 3 * PI / 4;
+      let fullAngle = TWO_PI - startAngle;
+      let endAngle = startAngle + fullAngle * fillLevel;
+
+      noFill();
+      strokeWeight(5);
+      stroke(255, 255, 255, 100);
+      arc(x, y, radius * 2, radius * 2, startAngle, startAngle + fullAngle);
+
+      stroke(255, 255, 255, 200);
+      arc(x, y, radius * 2, radius * 2, startAngle, endAngle);
+    }
+
+    function drawTempArc(x, y, radius, valor) {
+      let fillLevel = constrain(valor / temperaturaMaxima, 0, 1);
+      let startAngle = 3 * PI / 4;
+      let fullAngle = TWO_PI - startAngle;
+      let endAngle = startAngle + fullAngle * fillLevel;
+
+      noFill();
+      strokeWeight(5);
+      stroke(255, 255, 255, 100);
+      arc(x, y, radius * 2, radius * 2, startAngle, startAngle + fullAngle);
+
+      stroke(255, 255, 255, 200);
+      arc(x, y, radius * 2, radius * 2, startAngle, endAngle);
+    }
+
+    // -------------------------------
+    // Dibujo de círculo con texto
+    // -------------------------------
+    function drawTelemetryCircle(x, y, radius, label, value, unit = "") {
+      noFill();
+      strokeWeight(5);
+
+      stroke(255, 255, 255, 0);
+      arc(x, y, radius * 2, radius * 2, 0, 3 * PI / 4);
+      arc(x, y, radius * 2, radius * 2, 3 * PI / 4, 7 * PI / 4);
+      arc(x, y, radius * 2, radius * 2, 7 * PI / 4, TWO_PI);
+
+      stroke(255, 255, 255, 100);
+      strokeWeight(1);
+      circle(x, y, radius * 1.8);
+
+      textAlign(CENTER, CENTER);
+      fill(255);
+      noStroke();
+      textSize(15);
+      textStyle(BOLD);
+      text(label, x, y - radius / 2);
+
+      textSize(30);
+      text(value, x, y);
+
+      textSize(15);
+      text(unit, x, y + 30);
+    }
+  </script>
+</body>
+</html>

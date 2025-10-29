@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Telemetry Overlay - Motores y Fuerza G</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+    canvas {
+      position: fixed;
+      bottom: -50px;
+      right: -110px;
+    }
+    .fondoDatos {
+      width: 600px;
+      height: 250px;
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      background: linear-gradient(to bottom left, rgba(50, 50, 50, 0.7) 0%, rgba(47, 54, 64, 0) 100%);
+      clip-path: polygon(40% 0, 100% 0, 100% 100%, 0 100%);
+    }
+    h3 {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      text-transform: uppercase;
+      position: fixed;
+      bottom: -10px;
+      width: 500px;
+      text-align: center;
+      right: 0px;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <h3 id="stageActual"></h3>
+  <div class="fondoDatos"></div>
+  <script>
+    // -------------------------------
+    // Configuración Firebase
+    // -------------------------------
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+      authDomain: "halcon-space-348e7.firebaseapp.com",
+      projectId: "halcon-space-348e7",
+      storageBucket: "halcon-space-348e7.firebasestorage.app",
+      messagingSenderId: "741724706453",
+      appId: "1:741724706453:web:519531e63f2b923f952d9c",
+      measurementId: "G-VG1Y2YMY4W"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // -------------------------------
+    // Variables de telemetría
+    // -------------------------------
+    let motores = Array(9).fill(false);
+    let gForce = 0;
+    let maxG = 10;
+    let nivelTanque = 0;
+    let motoresAnimacion = Array(9).fill(0);
+    let motor10Activo = false;
+    let motor10Animacion = 0;
+    const animSpeed = 0.1;
+    let etapa1Activa = false;
+    let etapa2Activa = false;
+    let etapaActual = "DESCONOCIDA";
+
+    // -------------------------------
+    // Leer config de Firestore (etapa actual + maxG)
+    // -------------------------------
+    const docConfig = db.collection("telemetria").doc("config");
+    docConfig.onSnapshot((snap) => {
+      if (!snap.exists) return;
+      const config = snap.data();
+      etapaActual = config.etapa ?? "DESCONOCIDA";
+      maxG = config.fuerzaGMax ?? 10;
+      document.getElementById("stageActual").textContent = "Telemetría " + etapaActual;
+    });
+
+    // -------------------------------
+    // Leer datos en tiempo real
+    // -------------------------------
+    const docRef = db.collection("telemetria").doc("estado_actual");
+    docRef.onSnapshot((doc) => {
+      if (!doc.exists) return;
+      const datos = doc.data();
+
+      const m1 = datos.etapa1?.motores || {};
+      motores = [
+        m1.motor9 || false,
+        m1.motor2 || false,
+        m1.motor3 || false,
+        m1.motor4 || false,
+        m1.motor5 || false,
+        m1.motor6 || false,
+        m1.motor7 || false,
+        m1.motor8 || false,
+        m1.motor1 || false
+      ];
+
+      motor10Activo = datos.etapa2?.motores?.motor10 || false;
+
+      etapa1Activa = datos.etapa1?.activa || false;
+      etapa2Activa = datos.etapa2?.activa || false;
+      gForce = datos.fuerzaG || 0;
+
+      if (etapa1Activa || etapa2Activa) {
+        const pl = datos.combustible?.pl || 0;
+        const lox = datos.combustible?.lox || 0;
+        const maxpl = datos.combustible?.maxpl || 1;
+        const maxlox = datos.combustible?.maxlox || 1;
+        const porcentajePL = pl / maxpl;
+        const porcentajeLOX = lox / maxlox;
+        nivelTanque = (porcentajePL + porcentajeLOX) / 2;
+      } else {
+        nivelTanque = 0;
+      }
+      nivelTanque = Math.min(Math.max(nivelTanque, 0), 1);
+    });
+
+    // -------------------------------
+    // p5.js
+    // -------------------------------
+    function setup() {
+      createCanvas(600, 300);
+      pixelDensity(2);
+    }
+
+    function draw() {
+      clear();
+      background(0, 0, 0, 0);
+
+      for (let i = 0; i < motores.length; i++) {
+        motoresAnimacion[i] += motores[i] ? animSpeed : -animSpeed;
+        motoresAnimacion[i] = constrain(motoresAnimacion[i], 0, 1);
+      }
+
+      motor10Animacion += motor10Activo ? animSpeed : -animSpeed;
+      motor10Animacion = constrain(motor10Animacion, 0, 1);
+
+      if (etapa1Activa || (!etapa1Activa && !etapa2Activa)) {
+        drawEngines(150, 140, 80);
+      } else if (etapa2Activa) {
+        drawEnginesEtapa2(150, 140, 80);
+      }
+
+      drawGForceArc(350, 140, 80);
+      drawTelemetryCircle(350, 140, 80, "FUERZA G", gForce.toFixed(1), "g");
+    }
+
+    // === FUNCIONES DE DIBUJO ===
+    function drawEngines(x, y, radius) {
+      drawCombustibleArc(x, y, radius);
+      stroke(255, 255, 255, 100); strokeWeight(1);
+      circle(x, y, radius * 1.8);
+      drawMotorCircle(x, y, radius*0.35, motoresAnimacion[0], motores[0]);
+      const distance = radius*0.6;
+      for (let i=1;i<9;i++){
+        const angle = TWO_PI/8*(i-1)-PI/2;
+        drawMotorCircle(x+cos(angle)*distance, y+sin(angle)*distance, radius*0.35, motoresAnimacion[i], motores[i]);
+      }
+    }
+
+    function drawEnginesEtapa2(x, y, radius) {
+      drawCombustibleArc(x, y, radius);
+      stroke(255, 255, 255, 100); strokeWeight(1);
+      circle(x, y, radius*1.8);
+      drawMotorCircle(x, y, radius*1.5, motor10Animacion, motor10Activo);
+    }
+
+    function drawCombustibleArc(x, y, radius){
+      let fillLevel = constrain(nivelTanque,0,1);
+      let start = 3*PI/4; let fullAngle = TWO_PI-start;
+      let end = start+fullAngle*fillLevel;
+      noFill(); strokeWeight(5);
+      stroke(255,255,255,100); arc(x,y,radius*2,radius*2,start,start+fullAngle);
+      stroke(255,255,255,200); arc(x,y,radius*2,radius*2,start,end);
+    }
+
+    function drawGForceArc(x,y,radius){
+      let fillLevel = constrain(gForce/maxG,0,1);
+      let start = 3*PI/4; let fullAngle = TWO_PI-start;
+      let end = start+fullAngle*fillLevel;
+      noFill(); strokeWeight(5);
+      stroke(255,255,255,100); arc(x,y,radius*2,radius*2,start,start+fullAngle);
+      stroke(255,255,255,200); arc(x,y,radius*2,radius*2,start,end);
+    }
+
+    function drawMotorCircle(cx,cy,maxRadius,fillLevel,activo){
+      noFill(); stroke(255); strokeWeight(2); ellipse(cx,cy,maxRadius,maxRadius);
+      if(fillLevel>0){ noStroke(); fill(255,255,255,180); ellipse(cx,cy,maxRadius*fillLevel,maxRadius*fillLevel); }
+    }
+
+    function drawTelemetryCircle(x,y,radius,label,value,unit=""){
+      noFill(); strokeWeight(5);
+      stroke(255,255,255,0); arc(x,y,radius*2,radius*2,0,3*PI/4);
+      arc(x,y,radius*2,radius*2,3*PI/4,7*PI/4); arc(x,y,radius*2,radius*2,7*PI/4,TWO_PI);
+      stroke(255,255,255,100); strokeWeight(1); circle(x,y,radius*1.8);
+      textAlign(CENTER,CENTER); fill(255); noStroke(); textSize(15); textStyle(BOLD); text(label,x,y-radius/2);
+      textSize(30); text(value,x,y); textSize(15); text(unit,x,y+30);
+    }
+  </script>
+</body>
+</html>
