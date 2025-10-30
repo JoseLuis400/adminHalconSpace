@@ -62,6 +62,14 @@ function mostrarNotificacion(mensaje, tipo = 'success') {
   setTimeout(() => notif.style.display = 'none', 3000);
 }
 
+function formatearFechaHora(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const fecha = d.toISOString().split('T')[0];
+  const hora = d.toISOString().split('T')[1].substring(0, 8);
+  return { fecha, hora };
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const selector = document.getElementById("selectorMision");
   const form = document.getElementById("formT0");
@@ -71,6 +79,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const switchTelemetria = document.getElementById("switchTelemetria");
   const labelTelemetria = document.getElementById("labelTelemetria");
   const lanzamientoIdElem = document.getElementById("lanzamientoId");
+  const formWindow = document.getElementById("formWindow");
+  const windowDisplay = document.getElementById("windowDisplay");
+  const btnEliminarWindow = document.getElementById("btnEliminarWindow");
+  const windowSection = document.getElementById("windowSection");
 
   // Click para copiar ID
   lanzamientoIdElem.addEventListener("click", () => {
@@ -104,6 +116,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     if(m) cargarDatosMision(m);
   });
 
+  function actualizarVistaWindow(window) {
+    if (!window || window === null) {
+      windowDisplay.style.display = 'none';
+      formWindow.style.display = 'block';
+      btnEliminarWindow.style.display = 'none';
+      formWindow.reset();
+    } else {
+      windowDisplay.style.display = 'block';
+      formWindow.style.display = 'none';
+      btnEliminarWindow.style.display = 'block';
+      
+      const inicio = new Date(window.start);
+      const fin = new Date(window.end);
+      
+      document.getElementById('windowStart').textContent = inicio.toLocaleString('es-UY');
+      document.getElementById('windowEnd').textContent = fin.toLocaleString('es-UY');
+      
+      const duracion = Math.abs(fin - inicio);
+      const minutos = Math.floor(duracion / 60000);
+      document.getElementById('windowDuration').textContent = `${minutos} min`;
+    }
+  }
+
   function cargarDatosMision(mision){
     misionActual = mision;
     lanzamientoIdElem.textContent = mision.id;
@@ -126,6 +161,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     switchTelemetria.checked = mision.telemetria_on ?? false;
     labelTelemetria.textContent = switchTelemetria.checked ? "ON" : "OFF";
 
+    // Actualizar vista de ventana
+    actualizarVistaWindow(mision.window);
+
     if(unsubscribe) unsubscribe();
     unsubscribe = onSnapshot(doc(db, "lanzamientos", mision.id), (docSnap) => {
       if(docSnap.exists()) {
@@ -135,6 +173,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         estadoElem.className = `badge ${data.estado || "desconocido"}`;
         switchTelemetria.checked = data.telemetria_on ?? false;
         labelTelemetria.textContent = switchTelemetria.checked ? "ON" : "OFF";
+        actualizarVistaWindow(data.window);
       }
     });
   }
@@ -219,6 +258,59 @@ document.addEventListener("DOMContentLoaded", async () => {
       mostrarNotificacion(`❌ Error: ${e.message}`, 'error');
     } finally {
       submitBtn.disabled = false;
+    }
+  });
+
+  // Formulario de ventana de lanzamiento
+  formWindow.addEventListener("submit", async e => {
+    e.preventDefault();
+    if(!lanzamientoId) return mostrarNotificacion("⚠️ Selecciona una misión", 'error');
+
+    const submitBtn = formWindow.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    const startDate = formWindow.windowStartDate.value;
+    const startTime = formWindow.windowStartTime.value;
+    const endDate = formWindow.windowEndDate.value;
+    const endTime = formWindow.windowEndTime.value;
+
+    const startISO = new Date(`${startDate}T${startTime}:00.000Z`).toISOString();
+    const endISO = new Date(`${endDate}T${endTime}:00.000Z`).toISOString();
+
+    try {
+      await updateDoc(doc(db, "lanzamientos", lanzamientoId), {
+        window: {
+          start: startISO,
+          end: endISO
+        }
+      });
+      misionActual.window = { start: startISO, end: endISO };
+      mostrarNotificacion("✅ Ventana de lanzamiento establecida", 'success');
+    } catch(e) {
+      mostrarNotificacion(`❌ Error: ${e.message}`, 'error');
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  // Eliminar ventana
+  btnEliminarWindow.addEventListener("click", async () => {
+    if(!lanzamientoId) return mostrarNotificacion("⚠️ Selecciona una misión", 'error');
+    
+    if(!confirm("¿Eliminar la ventana de lanzamiento?")) return;
+    
+    btnEliminarWindow.disabled = true;
+
+    try {
+      await updateDoc(doc(db, "lanzamientos", lanzamientoId), {
+        window: null
+      });
+      misionActual.window = null;
+      mostrarNotificacion("✅ Ventana eliminada", 'success');
+    } catch(e) {
+      mostrarNotificacion(`❌ Error: ${e.message}`, 'error');
+    } finally {
+      btnEliminarWindow.disabled = false;
     }
   });
 });
@@ -409,6 +501,12 @@ button:disabled {
   color: #000;
 }
 
+.btn-danger {
+  width: 100%;
+  background: #ff4444;
+  color: #fff;
+}
+
 .btn-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -451,6 +549,29 @@ button:disabled {
   background: #ff4444;
   color: #fff;
 }
+
+.window-display {
+  background: #0a0a0a;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #333;
+}
+
+.window-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.window-info span:first-child {
+  color: #888;
+}
+
+.window-info span:last-child {
+  color: #00ffcc;
+  font-family: monospace;
+}
   </style>
 </head>
 <body>
@@ -466,6 +587,39 @@ button:disabled {
   <div class="section">
     <div id="contadorDisplay">--:--:--</div>
     <div id="holdTime"></div>
+  </div>
+
+  <div class="section" id="windowSection">
+    <div class="section-title">🪟 Ventana de Lanzamiento</div>
+    
+    <div id="windowDisplay" class="window-display" style="display: none;">
+      <div class="window-info">
+        <span>Inicio:</span>
+        <span id="windowStart">--</span>
+      </div>
+      <div class="window-info">
+        <span>Fin:</span>
+        <span id="windowEnd">--</span>
+      </div>
+      <div class="window-info">
+        <span>Duración:</span>
+        <span id="windowDuration">--</span>
+      </div>
+    </div>
+
+    <form id="formWindow" style="display: none;">
+      <div class="form-grid">
+        <input type="date" name="windowStartDate" required>
+        <input type="time" name="windowStartTime" step="1" required>
+      </div>
+      <div class="form-grid">
+        <input type="date" name="windowEndDate" required>
+        <input type="time" name="windowEndTime" step="1" required>
+      </div>
+      <button type="submit" class="btn-submit">Establecer Ventana</button>
+    </form>
+
+    <button id="btnEliminarWindow" class="btn-danger" style="display: none; margin-top: 0.5rem;">Eliminar Ventana</button>
   </div>
 
   <div class="section">
