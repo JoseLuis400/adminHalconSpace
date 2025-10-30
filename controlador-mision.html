@@ -49,7 +49,7 @@ function calcularContador(fechaStr, timeStr, ahora = new Date()) {
   const segundos = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
   
   if(dias > 0) {
-    return `${signo}${dias}d / ${horas}:${minutos}:${segundos}`;
+    return `${signo}${dias}D / ${horas}:${minutos}:${segundos}`;
   }
   return `${signo}${horas}:${minutos}:${segundos}`;
 }
@@ -70,6 +70,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   const holdTimeElem = document.getElementById("holdTime");
   const switchTelemetria = document.getElementById("switchTelemetria");
   const labelTelemetria = document.getElementById("labelTelemetria");
+  const lanzamientoIdElem = document.getElementById("lanzamientoId");
+
+  // Click para copiar ID
+  lanzamientoIdElem.addEventListener("click", () => {
+    if (lanzamientoId) {
+      navigator.clipboard.writeText(lanzamientoId).then(() => {
+        mostrarNotificacion("📋 ID copiado", 'success');
+      });
+    }
+  });
 
   const snap = await getDocs(collection(db, "lanzamientos"));
   let misiones = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
@@ -96,6 +106,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function cargarDatosMision(mision){
     misionActual = mision;
+    lanzamientoIdElem.textContent = mision.id;
     form.fecha.value = mision.fecha.split("/").reverse().join("-");
     form.hora.value = mision.timeUTC || "00:00:00";
 
@@ -129,7 +140,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const botonesEstado = document.querySelectorAll("button[data-estado]");
-  const reciclarBtn = document.getElementById("reciclarBtn");
 
   botonesEstado.forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -166,29 +176,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         btn.disabled = false;
       }
     });
-  });
-
-  reciclarBtn.addEventListener("click", async () => {
-    if (!misionActual) return mostrarNotificacion("⚠️ Selecciona una misión", 'error');
-    
-    reciclarBtn.disabled = true;
-    try {
-      await updateDoc(doc(db, "lanzamientos", misionActual.id), {
-        estado: "programado",
-        holdTime: null
-      });
-      misionActual.estado = "programado";
-      misionActual.holdTime = null;
-      tiempoCongelado = null;
-      estadoElem.textContent = "Programado";
-      estadoElem.className = "badge programado";
-      holdTimeElem.textContent = "";
-      mostrarNotificacion("♻️ Reciclado", 'success');
-    } catch(e) {
-      mostrarNotificacion(`❌ Error: ${e.message}`, 'error');
-    } finally {
-      reciclarBtn.disabled = false;
-    }
   });
 
   switchTelemetria.addEventListener("change", async () => {
@@ -424,7 +411,7 @@ button:disabled {
 
 .btn-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
 }
 
@@ -477,10 +464,8 @@ button:disabled {
   </div>
 
   <div class="section">
-    <div class="info-row">
-      <span class="info-label">Estado</span>
-      <span id="estadoActual" class="badge">Desconocido</span>
-    </div>
+    <div id="contadorDisplay">--:--:--</div>
+    <div id="holdTime"></div>
   </div>
 
   <div class="section">
@@ -489,16 +474,10 @@ button:disabled {
       <button class="btn-programado" data-estado="programado">Programado</button>
       <button class="btn-hold" data-estado="hold">Hold</button>
       <button class="btn-scrub" data-estado="scrub">Scrub</button>
-      <button id="reciclarBtn" class="btn-reciclar">Reciclar</button>
       <button class="btn-exito" data-estado="exito">Éxito</button>
       <button class="btn-fallo" data-estado="fallo">Fallo</button>
       <button class="btn-envuelo" data-estado="en vuelo">En Vuelo</button>
     </div>
-  </div>
-
-  <div class="section">
-    <div id="contadorDisplay">--:--:--</div>
-    <div id="holdTime"></div>
   </div>
 
   <div class="section">
@@ -513,6 +492,13 @@ button:disabled {
   </div>
 
   <div class="section">
+    <div class="info-row">
+      <span class="info-label">Estado</span>
+      <span id="estadoActual" class="badge">Desconocido</span>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-title">Telemetría</div>
     <div class="switch-row">
       <span>📡 Transmisión</span>
@@ -523,6 +509,13 @@ button:disabled {
         </label>
         <span id="labelTelemetria">OFF</span>
       </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="info-row">
+      <span class="info-label">ID</span>
+      <span id="lanzamientoId" style="font-family: monospace; font-size: 0.85rem; color: #00ffcc; cursor: pointer;" title="Click para copiar">--</span>
     </div>
   </div>
 
