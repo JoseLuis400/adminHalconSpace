@@ -2,10 +2,11 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Panel de Control de Lanzamiento</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Lanzamiento</title>
   <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
@@ -24,6 +25,7 @@ let lanzamientoId = null;
 let misionActual = null;
 let contadorInterval = null;
 let tiempoCongelado = null;
+let unsubscribe = null;
 
 const capitalize = str => str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
 
@@ -45,29 +47,38 @@ function calcularContador(fechaStr, timeStr, ahora = new Date()) {
   const horas = String(Math.floor((diff % 86400000) / 3600000)).padStart(2, "0");
   const minutos = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
   const segundos = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
-  return dias > 0 ? `${signo}${dias}d ${horas}:${minutos}:${segundos}` : `${signo}${horas}:${minutos}:${segundos}`;
+  
+  if(dias > 0) {
+    return `${signo}${dias}d / ${horas}:${minutos}:${segundos}`;
+  }
+  return `${signo}${horas}:${minutos}:${segundos}`;
+}
+
+function mostrarNotificacion(mensaje, tipo = 'success') {
+  const notif = document.getElementById('notificacion');
+  notif.textContent = mensaje;
+  notif.className = `notificacion ${tipo}`;
+  notif.style.display = 'block';
+  setTimeout(() => notif.style.display = 'none', 3000);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
   const selector = document.getElementById("selectorMision");
   const form = document.getElementById("formT0");
   const estadoElem = document.getElementById("estadoActual");
-  const contadorElem = document.getElementById("contadorActual");
+  const contadorElem = document.getElementById("contadorDisplay");
   const holdTimeElem = document.getElementById("holdTime");
   const switchTelemetria = document.getElementById("switchTelemetria");
   const labelTelemetria = document.getElementById("labelTelemetria");
-  const idElem = document.getElementById("lanzamientoId");
 
-  // ===== Cargar misiones desde Firestore =====
   const snap = await getDocs(collection(db, "lanzamientos"));
   let misiones = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-
   misiones.sort((a,b) => getLaunchUTC(b.fecha, b.timeUTC || "00:00:00") - getLaunchUTC(a.fecha, a.timeUTC || "00:00:00"));
 
   misiones.forEach(m => {
     const option = document.createElement("option");
     option.value = m.id;
-    option.textContent = `${m.nombre} (${m.fecha} - ${m.timeUTC + " UTC" || ""})`;
+    option.textContent = `${m.nombre} (${m.fecha})`;
     selector.appendChild(option);
   });
 
@@ -79,177 +90,260 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   selector.addEventListener("change", e => {
     lanzamientoId = e.target.value;
-    idElem.textContent = `ID Seleccionado: ${lanzamientoId}`;
     const m = misiones.find(m => m.id === lanzamientoId);
     if(m) cargarDatosMision(m);
   });
 
   function cargarDatosMision(mision){
     misionActual = mision;
-    idElem.textContent = `ID Seleccionado: ${mision.id}`;
-
     form.fecha.value = mision.fecha.split("/").reverse().join("-");
     form.hora.value = mision.timeUTC || "00:00:00";
 
     estadoElem.textContent = capitalize(mision.estado || "Desconocido");
-    holdTimeElem.textContent = mision.holdTime ? `Hora HOLD/SCRUB: ${mision.holdTime}` : "";
+    estadoElem.className = `badge ${mision.estado || "desconocido"}`;
+    
+    holdTimeElem.textContent = mision.holdTime ? `⏸️ ${new Date(mision.holdTime).toLocaleString('es-UY')}` : "";
 
     if(contadorInterval) clearInterval(contadorInterval);
     tiempoCongelado = (mision.estado === "hold" || mision.estado === "scrub") ? (mision.holdTime ? new Date(mision.holdTime) : new Date()) : null;
+    
     contadorInterval = setInterval(() => {
       const ahora = tiempoCongelado ? new Date(tiempoCongelado) : new Date();
       contadorElem.textContent = calcularContador(misionActual.fecha, misionActual.timeUTC, ahora);
     }, 1000);
 
-    // Actualizar switch telemetría
     switchTelemetria.checked = mision.telemetria_on ?? false;
-    labelTelemetria.textContent = switchTelemetria.checked ? "Telemetría ACTIVADA" : "Telemetría DESACTIVADA";
+    labelTelemetria.textContent = switchTelemetria.checked ? "ON" : "OFF";
+
+    if(unsubscribe) unsubscribe();
+    unsubscribe = onSnapshot(doc(db, "lanzamientos", mision.id), (docSnap) => {
+      if(docSnap.exists()) {
+        const data = docSnap.data();
+        misionActual = { id: docSnap.id, ...data };
+        estadoElem.textContent = capitalize(data.estado || "Desconocido");
+        estadoElem.className = `badge ${data.estado || "desconocido"}`;
+        switchTelemetria.checked = data.telemetria_on ?? false;
+        labelTelemetria.textContent = switchTelemetria.checked ? "ON" : "OFF";
+      }
+    });
   }
 
-    // ===== Acciones rápidas =====
-    const botonesEstado = document.querySelectorAll("button[data-estado]");
+  const botonesEstado = document.querySelectorAll("button[data-estado]");
   const reciclarBtn = document.getElementById("reciclarBtn");
 
   botonesEstado.forEach(btn => {
     btn.addEventListener("click", async () => {
-      if (!misionActual) return alert("⚠️ Selecciona una misión primero");
+      if (!misionActual) return mostrarNotificacion("⚠️ Selecciona una misión", 'error');
+      
+      btn.disabled = true;
       const nuevoEstado = btn.dataset.estado;
-
       let updateData = { estado: nuevoEstado };
 
-      // Si es HOLD guardamos la hora del evento
-      if (nuevoEstado === "hold") {
+      if (nuevoEstado === "hold" || nuevoEstado === "scrub") {
         updateData.holdTime = new Date().toISOString();
       } else {
         updateData.holdTime = null;
       }
 
-      await updateDoc(doc(db, "lanzamientos", misionActual.id), updateData);
-
-      misionActual.estado = nuevoEstado;
-      misionActual.holdTime = updateData.holdTime;
-
-      document.getElementById("estadoActual").textContent = nuevoEstado.toUpperCase();
-      document.getElementById("holdTime").textContent =
-        updateData.holdTime ? `Hora HOLD/SCRUB: ${new Date(updateData.holdTime).toLocaleString()}` : "";
-
-      console.log(`✅ Estado actualizado a: ${nuevoEstado}`);
+      try {
+        await updateDoc(doc(db, "lanzamientos", misionActual.id), updateData);
+        misionActual.estado = nuevoEstado;
+        misionActual.holdTime = updateData.holdTime;
+        
+        if (nuevoEstado === "hold" || nuevoEstado === "scrub") {
+          tiempoCongelado = new Date();
+        } else {
+          tiempoCongelado = null;
+        }
+        
+        estadoElem.textContent = capitalize(nuevoEstado);
+        estadoElem.className = `badge ${nuevoEstado}`;
+        holdTimeElem.textContent = updateData.holdTime ? `⏸️ ${new Date(updateData.holdTime).toLocaleString('es-UY')}` : "";
+        mostrarNotificacion(`✅ Estado: ${capitalize(nuevoEstado)}`, 'success');
+      } catch(e) {
+        mostrarNotificacion(`❌ Error: ${e.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
     });
   });
 
-  // Reciclar → volver al estado programado y resetear holdTime
   reciclarBtn.addEventListener("click", async () => {
-    if (!misionActual) return alert("⚠️ Selecciona una misión primero");
-
-    await updateDoc(doc(db, "lanzamientos", misionActual.id), {
-      estado: "programado",
-      holdTime: null
-    });
-
-    misionActual.estado = "programado";
-    misionActual.holdTime = null;
-
-    document.getElementById("estadoActual").textContent = "Programado";
-    document.getElementById("holdTime").textContent = "";
-
-    console.log("♻️ Lanzamiento reciclado a 'Programado'");
+    if (!misionActual) return mostrarNotificacion("⚠️ Selecciona una misión", 'error');
+    
+    reciclarBtn.disabled = true;
+    try {
+      await updateDoc(doc(db, "lanzamientos", misionActual.id), {
+        estado: "programado",
+        holdTime: null
+      });
+      misionActual.estado = "programado";
+      misionActual.holdTime = null;
+      tiempoCongelado = null;
+      estadoElem.textContent = "Programado";
+      estadoElem.className = "badge programado";
+      holdTimeElem.textContent = "";
+      mostrarNotificacion("♻️ Reciclado", 'success');
+    } catch(e) {
+      mostrarNotificacion(`❌ Error: ${e.message}`, 'error');
+    } finally {
+      reciclarBtn.disabled = false;
+    }
   });
 
-
-  // ===== Switch Telemetría =====
   switchTelemetria.addEventListener("change", async () => {
-    if(!misionActual) return alert("⚠️ Selecciona una misión primero");
+    if(!misionActual) return mostrarNotificacion("⚠️ Selecciona una misión", 'error');
+    
     const nuevoEstado = switchTelemetria.checked;
-    await updateDoc(doc(db, "lanzamientos", misionActual.id), {
-      telemetria_on: nuevoEstado
-    });
-    labelTelemetria.textContent = nuevoEstado ? "Telemetría ACTIVADA" : "Telemetría DESACTIVADA";
-    misionActual.telemetria_on = nuevoEstado;
-    console.log(`✅ Telemetría ${nuevoEstado ? "activada" : "desactivada"}`);
+    try {
+      await updateDoc(doc(db, "lanzamientos", misionActual.id), {
+        telemetria_on: nuevoEstado
+      });
+      labelTelemetria.textContent = nuevoEstado ? "ON" : "OFF";
+      misionActual.telemetria_on = nuevoEstado;
+      mostrarNotificacion(`📡 Telemetría ${nuevoEstado ? "ON" : "OFF"}`, 'success');
+    } catch(e) {
+      mostrarNotificacion(`❌ Error: ${e.message}`, 'error');
+      switchTelemetria.checked = !nuevoEstado;
+    }
   });
 
   form.addEventListener("submit", async e => {
     e.preventDefault();
-    if(!lanzamientoId) return alert("⚠️ Selecciona una misión primero");
+    if(!lanzamientoId) return mostrarNotificacion("⚠️ Selecciona una misión", 'error');
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
 
     const fecha = form.fecha.value.split("-").reverse().join("/");
     const hora = form.hora.value;
     const utcTime = getLaunchUTC(fecha, hora).toISOString();
 
-    await updateDoc(doc(db, "lanzamientos", lanzamientoId), {
-      fecha,
-      timeUTC: hora,
-      utcTime
-    });
-
-    console.log("✅ T-0 actualizado");
+    try {
+      await updateDoc(doc(db, "lanzamientos", lanzamientoId), {
+        fecha,
+        timeUTC: hora,
+        utcTime
+      });
+      misionActual.fecha = fecha;
+      misionActual.timeUTC = hora;
+      mostrarNotificacion("✅ T-0 actualizado", 'success');
+    } catch(e) {
+      mostrarNotificacion(`❌ Error: ${e.message}`, 'error');
+    } finally {
+      submitBtn.disabled = false;
+    }
   });
 });
   </script>
 
   <style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 body {
-  font-family: Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
   background: #0d0d0d;
-  color: #f1f1f1;
+  color: #e0e0e0;
+  padding: 1rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #00ffcc;
+}
+
+.section {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.section-title {
+  font-size: 0.9rem;
+  color: #888;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+select, input {
+  width: 100%;
+  padding: 0.5rem;
+  background: #0a0a0a;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+select:focus, input:focus {
+  outline: none;
+  border-color: #00ffcc;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.info-label {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.badge.programado { background: #0066ff; color: #fff; }
+.badge.hold { background: #ffcc00; color: #000; }
+.badge.scrub { background: #ff4444; color: #fff; }
+.badge.exito { background: #00cc66; color: #fff; }
+.badge.fallo { background: #990000; color: #fff; }
+.badge.en.vuelo { background: #0066ff; color: #fff; }
+
+#contadorDisplay {
   text-align: center;
-  padding: 2rem;
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #00ffcc;
+  font-family: 'Courier New', monospace;
+  padding: 1rem 0;
 }
 
-h1 { 
-  margin-bottom: 1rem; 
+#holdTime {
+  text-align: center;
+  color: #ffcc00;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
 }
 
-select, input { 
-  padding: 0.5rem; 
-  margin: 0.3rem; 
-  border-radius: 4px; 
-  border: none; 
-  font-size: 1rem; 
+.switch-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-button { 
-  margin: 0.4rem; 
-  padding: 0.6rem 1rem; 
-  border: none; 
-  border-radius: 4px; 
-  font-weight: bold; 
-  cursor: pointer; 
-}
-
-.programado { background: #0066ff; color: #fff; }
-.hold { background: #ffcc00; color: #000; }
-.scrub { background: #ff4444; }
-.exito { background: #00cc66; }
-.fallo { background: #990000; }
-.envuelo { background: #0066ff; }
-
-#contadorActual { 
-  font-size: 2rem; 
-  margin: 1rem 0; 
-  font-weight: bold; 
-}
-
-#holdTime { 
-  font-size: 1rem; 
-  margin-bottom: 1rem; 
-  color: #ffcc00; 
-}
-
-#switchContainer { 
-  margin: 1rem 0; 
-  display: flex; 
-  justify-content: center; 
-  align-items: center; 
-  gap: 0.5rem;
-}
-
-/* Switch estilo moderno */
 .switch {
   position: relative;
   display: inline-block;
-  width: 60px;
-  height: 34px;
+  width: 44px;
+  height: 24px;
 }
 
 .switch input {
@@ -261,105 +355,177 @@ button {
 .slider {
   position: absolute;
   cursor: pointer;
-  top: 0; left: 0;
-  right: 0; bottom: 0;
-  background-color: #ccc;
-  transition: 0.4s;
-  border-radius: 34px;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #444;
+  transition: 0.3s;
+  border-radius: 24px;
 }
 
 .slider:before {
   position: absolute;
   content: "";
-  height: 26px; 
-  width: 26px;
-  left: 4px; 
-  bottom: 4px;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
   background-color: white;
-  transition: 0.4s;
+  transition: 0.3s;
   border-radius: 50%;
 }
 
 input:checked + .slider {
-  background-color: #00cc66; /* verde cuando activado */
-}
-
-input:focus + .slider {
-  box-shadow: 0 0 1px #00cc66;
+  background-color: #00cc66;
 }
 
 input:checked + .slider:before {
-  transform: translateX(26px);
+  transform: translateX(20px);
 }
 
 #labelTelemetria {
+  margin-left: 0.5rem;
+  font-size: 0.9rem;
   font-weight: bold;
-  vertical-align: middle;
-  font-size: 1rem;
-  color: #ff4444; /* rojo por defecto desactivado */
+  color: #888;
 }
 
-/* Estilo para mostrar ID del lanzamiento */
-#lanzamientoId {
-  font-size: 0.9rem; 
-  color: #00ffcc; 
-  margin-bottom: 1rem; 
-  display: block; 
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
-/* Formulario de T-0 */
-form {
-  background: #1a1a1a;
-  padding: 1rem;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  display: inline-block;
+button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
 }
 
-input[type="date"], input[type="time"] {
-  width: 150px;
+button:hover:not(:disabled) {
+  opacity: 0.8;
+  transform: translateY(-1px);
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-submit {
+  width: 100%;
+  background: #00ffcc;
+  color: #000;
+}
+
+.btn-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .btn-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.btn-programado { background: #0066ff; color: #fff; }
+.btn-hold { background: #ffcc00; color: #000; }
+.btn-scrub { background: #ff4444; color: #fff; }
+.btn-exito { background: #00cc66; color: #fff; }
+.btn-fallo { background: #990000; color: #fff; }
+.btn-envuelo { background: #0066ff; color: #fff; }
+.btn-reciclar { background: #00ffcc; color: #000; }
+
+.notificacion {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  z-index: 1000;
+  display: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.notificacion.success {
+  background: #00cc66;
+  color: #fff;
+}
+
+.notificacion.error {
+  background: #ff4444;
+  color: #fff;
+}
   </style>
 </head>
 <body>
-  <h1>🚀 Panel de Control de Lanzamiento</h1>
+  <h1>🚀 Control de Lanzamiento</h1>
 
-  <div>
-    <label for="selectorMision"><strong>Seleccionar misión:</strong></label>
-    <br>
+  <div class="section">
+    <div class="section-title">Misión</div>
     <select id="selectorMision">
-      <option value="">-- Selecciona una misión --</option>
+      <option value="">-- Selecciona --</option>
     </select>
   </div>
 
-  <p id="lanzamientoId">ID Seleccionado: --</p>
-
-  <div id="switchContainer">
-    <input type="checkbox" id="switchTelemetria">
-    <span id="labelTelemetria">Telemetría DESACTIVADA</span>
+  <div class="section">
+    <div class="info-row">
+      <span class="info-label">Estado</span>
+      <span id="estadoActual" class="badge">Desconocido</span>
+    </div>
   </div>
 
-  <p><strong>Estado actual:</strong> <span id="estadoActual">Desconocido</span></p>
-  <p id="contadorActual"></p>
-  <p id="holdTime"></p>
-
-  <form id="formT0">
-    <h2>Modificar T-0</h2>
-    <label>Fecha (UTC): <input type="date" name="fecha" required></label>
-    <label>Hora (UTC): <input type="time" step="1" name="hora" required></label>
-    <button type="submit">Actualizar T-0</button>
-  </form>
-
-  <div>
-    <h2>Acciones rápidas</h2>
-    <button class="programado" data-estado="programado">Programado</button>
-    <button class="hold" data-estado="hold">HOLD</button>
-    <button class="scrub" data-estado="scrub">SCRUB</button>
-    <button id="reciclarBtn" class="programado">Reciclar</button>
-    <button class="exito" data-estado="exito">Éxito</button>
-    <button class="fallo" data-estado="fallo">Fallo</button>
-    <button class="envuelo" data-estado="en vuelo">En vuelo</button>
+  <div class="section">
+    <div class="section-title">Control de Estado</div>
+    <div class="btn-grid">
+      <button class="btn-programado" data-estado="programado">Programado</button>
+      <button class="btn-hold" data-estado="hold">Hold</button>
+      <button class="btn-scrub" data-estado="scrub">Scrub</button>
+      <button id="reciclarBtn" class="btn-reciclar">Reciclar</button>
+      <button class="btn-exito" data-estado="exito">Éxito</button>
+      <button class="btn-fallo" data-estado="fallo">Fallo</button>
+      <button class="btn-envuelo" data-estado="en vuelo">En Vuelo</button>
+    </div>
   </div>
+
+  <div class="section">
+    <div id="contadorDisplay">--:--:--</div>
+    <div id="holdTime"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Modificar T-0</div>
+    <form id="formT0">
+      <div class="form-grid">
+        <input type="date" name="fecha" required>
+        <input type="time" name="hora" step="1" required>
+      </div>
+      <button type="submit" class="btn-submit">Actualizar</button>
+    </form>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Telemetría</div>
+    <div class="switch-row">
+      <span>📡 Transmisión</span>
+      <div style="display: flex; align-items: center;">
+        <label class="switch">
+          <input type="checkbox" id="switchTelemetria">
+          <span class="slider"></span>
+        </label>
+        <span id="labelTelemetria">OFF</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="notificacion" class="notificacion"></div>
 </body>
 </html>
