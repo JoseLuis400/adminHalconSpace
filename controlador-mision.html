@@ -117,15 +117,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   function actualizarVistaWindow(window) {
+    const btnEditarWindow = document.getElementById('btnEditarWindow');
+    
     if (!window || window === null) {
       windowDisplay.style.display = 'none';
       formWindow.style.display = 'block';
       btnEliminarWindow.style.display = 'none';
+      btnEditarWindow.style.display = 'none';
       formWindow.reset();
+      formWindow.querySelector('button[type="submit"]').textContent = 'Establecer Ventana';
     } else {
       windowDisplay.style.display = 'block';
       formWindow.style.display = 'none';
       btnEliminarWindow.style.display = 'block';
+      btnEditarWindow.style.display = 'block';
       
       const inicio = new Date(window.start);
       const fin = new Date(window.end);
@@ -274,8 +279,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const endDate = formWindow.windowEndDate.value;
     const endTime = formWindow.windowEndTime.value;
 
-    const startISO = new Date(`${startDate}T${startTime}:00.000Z`).toISOString();
-    const endISO = new Date(`${endDate}T${endTime}:00.000Z`).toISOString();
+    const startISO = `${startDate}T${startTime}.000Z`;
+    const endISO = `${endDate}T${endTime}.000Z`;
 
     try {
       await updateDoc(doc(db, "lanzamientos", lanzamientoId), {
@@ -291,6 +296,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     } finally {
       submitBtn.disabled = false;
     }
+  });
+
+  // Editar ventana
+  const btnEditarWindow = document.getElementById('btnEditarWindow');
+  btnEditarWindow.addEventListener("click", () => {
+    if(!misionActual || !misionActual.window) return;
+    
+    // Llenar el formulario con los datos actuales
+    const inicio = new Date(misionActual.window.start);
+    const fin = new Date(misionActual.window.end);
+    
+    formWindow.windowStartDate.value = inicio.toISOString().split('T')[0];
+    formWindow.windowStartTime.value = inicio.toISOString().split('T')[1].substring(0, 8);
+    formWindow.windowEndDate.value = fin.toISOString().split('T')[0];
+    formWindow.windowEndTime.value = fin.toISOString().split('T')[1].substring(0, 8);
+    
+    // Cambiar a modo edición
+    windowDisplay.style.display = 'none';
+    formWindow.style.display = 'block';
+    btnEliminarWindow.style.display = 'none';
+    btnEditarWindow.style.display = 'none';
+    formWindow.querySelector('button[type="submit"]').textContent = 'Guardar Cambios';
   });
 
   // Eliminar ventana
@@ -620,6 +647,7 @@ button:disabled {
     </form>
 
     <button id="btnEliminarWindow" class="btn-danger" style="display: none; margin-top: 0.5rem;">Eliminar Ventana</button>
+    <button id="btnEditarWindow" class="btn-submit" style="display: none; margin-top: 0.5rem;">Editar Ventana</button>
   </div>
 
   <div class="section">
