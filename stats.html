@@ -6,118 +6,427 @@
   <title>Estadísticas Halcon Space</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #0d0d0d;
-      color: #f1f1f1;
+    * {
       margin: 0;
-      padding: 2rem;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
       text-align: center;
+      margin-bottom: 3rem;
+      animation: fadeInDown 0.8s ease;
     }
-    h1 { margin-bottom: 1rem; color: #00ffcc; }
-    .estadisticas-container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 2rem;
+
+    h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(135deg, #00ffcc, #00aaff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+      font-weight: 700;
     }
+
+    .subtitle {
+      color: #888;
+      font-size: 1rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
     .card {
-      background-color: #1a1a1a;
-      border-radius: 8px;
-      padding: 1rem 2rem;
-      min-width: 250px;
-      box-shadow: 0 0 10px rgba(0,255,204,0.3);
+      background: rgba(30, 30, 40, 0.7);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 1.5rem;
+      border: 1px solid rgba(0, 255, 204, 0.1);
+      transition: all 0.3s ease;
+      animation: fadeInUp 0.8s ease;
     }
-    .card h2 { margin-top: 0; margin-bottom: 0.8rem; color: #00ffcc; }
-    .dato { font-size: 1.1rem; margin: 0.3rem 0; }
-    .exitoso { color: #00cc66; font-weight: bold; }
-    .fallido { color: #ff4444; font-weight: bold; }
-    .chart-container { width: 100%; height: 150px; margin-bottom: 1rem; }
-    input[type="number"] { width: 60px; margin-left: 5px; border-radius:4px; border:none; text-align:center; }
-    button { margin-left:5px; padding:0.3rem 0.6rem; border-radius:4px; border:none; cursor:pointer; background-color:#0066ff; color:#fff; }
+
+    .card h2 {
+      color: #00ffcc;
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .chart-wrapper {
+      width: 100%;
+      height: 180px;
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.8rem;
+      padding: 0.5rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+
+    .stat-row:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .stat-label {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      min-width: 50px;
+      text-align: right;
+    }
+
+    .exitoso { color: #00ff88; }
+    .fallido { color: #ff5555; }
+
+    .edit-controls {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-top: 0.5rem;
+    }
+
+    input[type="number"] {
+      width: 70px;
+      padding: 0.4rem;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 255, 204, 0.3);
+      background: rgba(255, 255, 255, 0.05);
+      color: #e0e0e0;
+      text-align: center;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #00ffcc;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    button {
+      padding: 0.4rem 1rem;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(135deg, #00aaff, #0066cc);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 0.9rem;
+    }
+
+    button:hover {
+      background: linear-gradient(135deg, #00ccff, #0088ff);
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0, 170, 255, 0.4);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .wide-card {
+      grid-column: 1 / -1;
+    }
+
+    .chart-large {
+      height: 400px;
+    }
+
+    .readonly-card {
+      opacity: 0.9;
+    }
+
+    .readonly-card .edit-controls {
+      display: none;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #888;
+    }
+
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .card {
+        padding: 1rem;
+      }
+    }
+
+    .success-message {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #00ff88, #00cc66);
+      color: #000;
+      padding: 1rem 1.5rem;
+      border-radius: 12px;
+      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0, 255, 136, 0.4);
+      animation: slideIn 0.3s ease, slideOut 0.3s ease 2.7s;
+      z-index: 1000;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOut {
+      to {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>📊 Estadísticas Halcon Space</h1>
+  <div class="container">
+    <header>
+      <h1>🚀 Estadísticas Halcon Space</h1>
+      <p class="subtitle">Panel de Control de Misiones Espaciales</p>
+    </header>
 
-  <div class="estadisticas-container">
-
-    <!-- Aterrizajes -->
-    <div class="card" id="aterrizajes-card">
-      <h2>Aterrizajes</h2>
-      <div class="chart-container"><canvas id="chartAterrizajes"></canvas></div>
-      <p class="dato">Exitosos: <span class="exitoso" id="aterrizajes-exitosos">--</span>
-        <input type="number" id="aterrizajes-exitosos-input"><button onclick="updateStat('aterrizajes','exitosos')">Guardar</button></p>
-      <p class="dato">Fallidos: <span class="fallido" id="aterrizajes-fallidos">--</span>
-        <input type="number" id="aterrizajes-fallidos-input"><button onclick="updateStat('aterrizajes','fallidos')">Guardar</button></p>
+    <div id="loading" class="loading">
+      <p>⏳ Cargando datos...</p>
     </div>
 
-    <!-- Lanzamientos -->
-    <div class="card" id="lanzamientos-card">
-      <h2>Lanzamientos</h2>
-      <div class="chart-container"><canvas id="chartLanzamientos"></canvas></div>
-      <p class="dato">Exitosos: <span class="exitoso" id="lanzamientos-exitosos">--</span>
-        <input type="number" id="lanzamientos-exitosos-input"><button onclick="updateStat('lanzamientos','exitosos')">Guardar</button></p>
-      <p class="dato">Fallidos: <span class="fallido" id="lanzamientos-fallidos">--</span>
-        <input type="number" id="lanzamientos-fallidos-input"><button onclick="updateStat('lanzamientos','fallidos')">Guardar</button></p>
-    </div>
+    <div class="stats-grid" id="statsGrid" style="display: none;">
+      <!-- Lanzamientos -->
+      <div class="card">
+        <h2>🚀 Lanzamientos</h2>
+        <div class="chart-wrapper">
+          <canvas id="chartLanzamientos"></canvas>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Exitosos:</span>
+          <span class="stat-value exitoso" id="lanzamientos-exitosos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="lanzamientos-exitosos-input" min="0">
+          <button onclick="updateStat('lanzamientos','exitosos')">Guardar</button>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Fallidos:</span>
+          <span class="stat-value fallido" id="lanzamientos-fallidos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="lanzamientos-fallidos-input" min="0">
+          <button onclick="updateStat('lanzamientos','fallidos')">Guardar</button>
+        </div>
+      </div>
 
-    <!-- Falcon 9 -->
-    <div class="card" id="falcon9-card">
-      <h2>Falcon 9</h2>
-      <div class="chart-container"><canvas id="chartFalcon9"></canvas></div>
-      <p class="dato">Exitosos: <span class="exitoso" id="falcon9-exitosos">--</span>
-        <input type="number" id="falcon9-exitosos-input"><button onclick="updateStat('vuelosVehiculos.falcon9','exitosos')">Guardar</button></p>
-      <p class="dato">Fallidos: <span class="fallido" id="falcon9-fallidos">--</span>
-        <input type="number" id="falcon9-fallidos-input"><button onclick="updateStat('vuelosVehiculos.falcon9','fallidos')">Guardar</button></p>
-    </div>
+      <!-- Aterrizajes -->
+      <div class="card">
+        <h2>🛬 Aterrizajes</h2>
+        <div class="chart-wrapper">
+          <canvas id="chartAterrizajes"></canvas>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Exitosos:</span>
+          <span class="stat-value exitoso" id="aterrizajes-exitosos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="aterrizajes-exitosos-input" min="0">
+          <button onclick="updateStat('aterrizajes','exitosos')">Guardar</button>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Fallidos:</span>
+          <span class="stat-value fallido" id="aterrizajes-fallidos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="aterrizajes-fallidos-input" min="0">
+          <button onclick="updateStat('aterrizajes','fallidos')">Guardar</button>
+        </div>
+      </div>
 
-    <!-- Falcon Heavy -->
-    <div class="card" id="falconHeavy-card">
-      <h2>Falcon Heavy</h2>
-      <div class="chart-container"><canvas id="chartFalconHeavy"></canvas></div>
-      <p class="dato">Exitosos: <span class="exitoso" id="falconHeavy-exitosos">--</span>
-        <input type="number" id="falconHeavy-exitosos-input"><button onclick="updateStat('vuelosVehiculos.falconHeavy','exitosos')">Guardar</button></p>
-      <p class="dato">Fallidos: <span class="fallido" id="falconHeavy-fallidos">--</span>
-        <input type="number" id="falconHeavy-fallidos-input"><button onclick="updateStat('vuelosVehiculos.falconHeavy','fallidos')">Guardar</button></p>
-    </div>
+      <!-- Falcon 9 -->
+      <div class="card">
+        <h2>🛰️ Falcon 9</h2>
+        <div class="chart-wrapper">
+          <canvas id="chartFalcon9"></canvas>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Exitosos:</span>
+          <span class="stat-value exitoso" id="falcon9-exitosos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="falcon9-exitosos-input" min="0">
+          <button onclick="updateStat('vuelosVehiculos.falcon9','exitosos')">Guardar</button>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Fallidos:</span>
+          <span class="stat-value fallido" id="falcon9-fallidos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="falcon9-fallidos-input" min="0">
+          <button onclick="updateStat('vuelosVehiculos.falcon9','fallidos')">Guardar</button>
+        </div>
+      </div>
 
-    <!-- Dragon General -->
-    <div class="card" id="dragon-general-card">
-      <h2>Dragon (General)</h2>
-      <div class="chart-container"><canvas id="chartDragonGeneral"></canvas></div>
-      <p class="dato">Exitosos: <span class="exitoso" id="dragon-general-exitosos">--</span></p>
-      <p class="dato">Fallidos: <span class="fallido" id="dragon-general-fallidos">--</span></p>
-    </div>
+      <!-- Falcon Heavy -->
+      <div class="card">
+        <h2>🔥 Falcon Heavy</h2>
+        <div class="chart-wrapper">
+          <canvas id="chartFalconHeavy"></canvas>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Exitosos:</span>
+          <span class="stat-value exitoso" id="falconHeavy-exitosos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="falconHeavy-exitosos-input" min="0">
+          <button onclick="updateStat('vuelosVehiculos.falconHeavy','exitosos')">Guardar</button>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Fallidos:</span>
+          <span class="stat-value fallido" id="falconHeavy-fallidos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="falconHeavy-fallidos-input" min="0">
+          <button onclick="updateStat('vuelosVehiculos.falconHeavy','fallidos')">Guardar</button>
+        </div>
+      </div>
 
-    <!-- Crew Dragon -->
-    <div class="card" id="crewDragon-card">
-      <h2>Crew Dragon</h2>
-      <div class="chart-container"><canvas id="chartCrewDragon"></canvas></div>
-      <p class="dato">Exitosos: <span class="exitoso" id="crewDragon-exitosos">--</span>
-        <input type="number" id="crewDragon-exitosos-input"><button onclick="updateStat('vuelosVehiculos.dragon.crewDragon','exitosos')">Guardar</button></p>
-      <p class="dato">Fallidos: <span class="fallido" id="crewDragon-fallidos">--</span>
-        <input type="number" id="crewDragon-fallidos-input"><button onclick="updateStat('vuelosVehiculos.dragon.crewDragon','fallidos')">Guardar</button></p>
-    </div>
+      <!-- Crew Dragon -->
+      <div class="card">
+        <h2>👨‍🚀 Crew Dragon</h2>
+        <div class="chart-wrapper">
+          <canvas id="chartCrewDragon"></canvas>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Exitosos:</span>
+          <span class="stat-value exitoso" id="crewDragon-exitosos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="crewDragon-exitosos-input" min="0">
+          <button onclick="updateStat('vuelosVehiculos.dragon.crewDragon','exitosos')">Guardar</button>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Fallidos:</span>
+          <span class="stat-value fallido" id="crewDragon-fallidos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="crewDragon-fallidos-input" min="0">
+          <button onclick="updateStat('vuelosVehiculos.dragon.crewDragon','fallidos')">Guardar</button>
+        </div>
+      </div>
 
-    <!-- Cargo Dragon -->
-    <div class="card" id="cargoDragon-card">
-      <h2>Cargo Dragon</h2>
-      <div class="chart-container"><canvas id="chartCargoDragon"></canvas></div>
-      <p class="dato">Exitosos: <span class="exitoso" id="cargoDragon-exitosos">--</span>
-        <input type="number" id="cargoDragon-exitosos-input"><button onclick="updateStat('vuelosVehiculos.dragon.cargoDragon','exitosos')">Guardar</button></p>
-      <p class="dato">Fallidos: <span class="fallido" id="cargoDragon-fallidos">--</span>
-        <input type="number" id="cargoDragon-fallidos-input"><button onclick="updateStat('vuelosVehiculos.dragon.cargoDragon','fallidos')">Guardar</button></p>
-    </div>
+      <!-- Cargo Dragon -->
+      <div class="card">
+        <h2>📦 Cargo Dragon</h2>
+        <div class="chart-wrapper">
+          <canvas id="chartCargoDragon"></canvas>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Exitosos:</span>
+          <span class="stat-value exitoso" id="cargoDragon-exitosos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="cargoDragon-exitosos-input" min="0">
+          <button onclick="updateStat('vuelosVehiculos.dragon.cargoDragon','exitosos')">Guardar</button>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Fallidos:</span>
+          <span class="stat-value fallido" id="cargoDragon-fallidos">0</span>
+        </div>
+        <div class="edit-controls">
+          <input type="number" id="cargoDragon-fallidos-input" min="0">
+          <button onclick="updateStat('vuelosVehiculos.dragon.cargoDragon','fallidos')">Guardar</button>
+        </div>
+      </div>
 
-    <!-- Gráfico de barras apiladas -->
-    <div class="card" id="vuelos-stacked-card" style="width: 100%;">
-      <h2>Vuelos y Aterrizajes</h2>
-      <div class="chart-container" style="height:350px;">
-        <canvas id="chartVuelosStacked"></canvas>
+      <!-- Dragon General (solo lectura) -->
+      <div class="card readonly-card">
+        <h2>🐉 Dragon Total</h2>
+        <div class="chart-wrapper">
+          <canvas id="chartDragonGeneral"></canvas>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Exitosos:</span>
+          <span class="stat-value exitoso" id="dragon-general-exitosos">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Fallidos:</span>
+          <span class="stat-value fallido" id="dragon-general-fallidos">0</span>
+        </div>
+      </div>
+
+      <!-- Gráfico comparativo -->
+      <div class="card wide-card">
+        <h2>📊 Comparativa General de Vuelos</h2>
+        <div class="chart-wrapper chart-large">
+          <canvas id="chartVuelosStacked"></canvas>
+        </div>
       </div>
     </div>
-
   </div>
 
   <script type="module">
@@ -136,68 +445,145 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const ref = doc(db,"estadisticas","general");
+    const ref = doc(db, "estadisticas", "general");
 
-    const createChart = (id, type='doughnut') => new Chart(document.getElementById(id), {
-      type,
-      data: { labels: ['Exitosos','Fallidos'], datasets: [{ data: [0,0], backgroundColor: ['#00cc66','#ff4444'] }] },
-      options: { responsive: true }
+    Chart.defaults.color = '#e0e0e0';
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+
+    const createDoughnutChart = (id) => new Chart(document.getElementById(id), {
+      type: 'doughnut',
+      data: {
+        labels: ['Exitosos', 'Fallidos'],
+        datasets: [{
+          data: [0, 0],
+          backgroundColor: ['#00ff88', '#ff5555'],
+          borderWidth: 0,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            cornerRadius: 8
+          }
+        }
+      }
     });
 
-    const chartAterrizajes = createChart("chartAterrizajes");
-    const chartLanzamientos = createChart("chartLanzamientos");
-    const chartFalcon9 = createChart("chartFalcon9");
-    const chartFalconHeavy = createChart("chartFalconHeavy");
-    const chartDragonGeneral = createChart("chartDragonGeneral");
-    const chartCrewDragon = createChart("chartCrewDragon");
-    const chartCargoDragon = createChart("chartCargoDragon");
+    const chartLanzamientos = createDoughnutChart("chartLanzamientos");
+    const chartAterrizajes = createDoughnutChart("chartAterrizajes");
+    const chartFalcon9 = createDoughnutChart("chartFalcon9");
+    const chartFalconHeavy = createDoughnutChart("chartFalconHeavy");
+    const chartCrewDragon = createDoughnutChart("chartCrewDragon");
+    const chartCargoDragon = createDoughnutChart("chartCargoDragon");
+    const chartDragonGeneral = createDoughnutChart("chartDragonGeneral");
 
-    // Gráfico apilado
     const chartVuelosStacked = new Chart(document.getElementById("chartVuelosStacked"), {
       type: 'bar',
       data: {
         labels: ['Falcon 9', 'Falcon Heavy', 'Crew Dragon', 'Cargo Dragon', 'Aterrizajes'],
         datasets: [
-          { label: 'Exitosos', backgroundColor: '#00cc66', data: [0,0,0,0,0] },
-          { label: 'Fallidos', backgroundColor: '#ff4444', data: [0,0,0,0,0] }
+          {
+            label: 'Exitosos',
+            backgroundColor: '#00ff88',
+            data: [0, 0, 0, 0, 0],
+            borderRadius: 6
+          },
+          {
+            label: 'Fallidos',
+            backgroundColor: '#ff5555',
+            data: [0, 0, 0, 0, 0],
+            borderRadius: 6
+          }
         ]
       },
       options: {
         responsive: true,
-        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            stacked: true,
+            grid: {
+              display: false
+            }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(255, 255, 255, 0.05)'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              padding: 15,
+              font: {
+                size: 13
+              }
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            cornerRadius: 8
+          }
+        }
       }
     });
 
     const updateCard = (cardId, chart, data) => {
       const exitosos = data?.exitosos ?? 0;
       const fallidos = data?.fallidos ?? 0;
+      
       document.getElementById(`${cardId}-exitosos`).textContent = exitosos;
       document.getElementById(`${cardId}-fallidos`).textContent = fallidos;
+      
       const inputEx = document.getElementById(`${cardId}-exitosos-input`);
       const inputFa = document.getElementById(`${cardId}-fallidos-input`);
-      if(inputEx) inputEx.value = exitosos;
-      if(inputFa) inputFa.value = fallidos;
+      if (inputEx) inputEx.value = exitosos;
+      if (inputFa) inputFa.value = fallidos;
+      
       chart.data.datasets[0].data = [exitosos, fallidos];
-      chart.update();
+      chart.update('none');
+    };
+
+    const showSuccessMessage = (message) => {
+      const msg = document.createElement('div');
+      msg.className = 'success-message';
+      msg.textContent = message;
+      document.body.appendChild(msg);
+      setTimeout(() => msg.remove(), 3000);
     };
 
     onSnapshot(ref, snap => {
-      if(!snap.exists()) return;
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('statsGrid').style.display = 'grid';
+
+      if (!snap.exists()) return;
       const d = snap.data();
       const dragon = d.vuelosVehiculos?.dragon || {};
 
-      if(d.aterrizajes) updateCard('aterrizajes', chartAterrizajes, d.aterrizajes);
-      if(d.lanzamientos) updateCard('lanzamientos', chartLanzamientos, d.lanzamientos);
-      if(d.vuelosVehiculos?.falcon9) updateCard('falcon9', chartFalcon9, d.vuelosVehiculos.falcon9);
-      if(d.vuelosVehiculos?.falconHeavy) updateCard('falconHeavy', chartFalconHeavy, d.vuelosVehiculos.falconHeavy);
+      if (d.lanzamientos) updateCard('lanzamientos', chartLanzamientos, d.lanzamientos);
+      if (d.aterrizajes) updateCard('aterrizajes', chartAterrizajes, d.aterrizajes);
+      if (d.vuelosVehiculos?.falcon9) updateCard('falcon9', chartFalcon9, d.vuelosVehiculos.falcon9);
+      if (d.vuelosVehiculos?.falconHeavy) updateCard('falconHeavy', chartFalconHeavy, d.vuelosVehiculos.falconHeavy);
+      if (dragon.crewDragon) updateCard('crewDragon', chartCrewDragon, dragon.crewDragon);
+      if (dragon.cargoDragon) updateCard('cargoDragon', chartCargoDragon, dragon.cargoDragon);
 
       const exitososGeneral = (dragon.crewDragon?.exitosos || 0) + (dragon.cargoDragon?.exitosos || 0);
       const fallidosGeneral = (dragon.crewDragon?.fallidos || 0) + (dragon.cargoDragon?.fallidos || 0);
-      updateCard('dragon-general', chartDragonGeneral, {exitosos: exitososGeneral, fallidos: fallidosGeneral});
-      if(dragon.crewDragon) updateCard('crewDragon', chartCrewDragon, dragon.crewDragon);
-      if(dragon.cargoDragon) updateCard('cargoDragon', chartCargoDragon, dragon.cargoDragon);
+      updateCard('dragon-general', chartDragonGeneral, { exitosos: exitososGeneral, fallidos: fallidosGeneral });
 
-      // Actualizar gráfico apilado
       chartVuelosStacked.data.datasets[0].data = [
         d.vuelosVehiculos?.falcon9?.exitosos || 0,
         d.vuelosVehiculos?.falconHeavy?.exitosos || 0,
@@ -212,22 +598,29 @@
         dragon.cargoDragon?.fallidos || 0,
         d.aterrizajes?.fallidos || 0
       ];
-      chartVuelosStacked.update();
+      chartVuelosStacked.update('none');
     });
 
     window.updateStat = async (path, tipo) => {
-  const partes = path.split('.');
-  const key = partes[partes.length - 1]; // toma la última parte del path
-  const input = document.getElementById(`${key}-${tipo}-input`);
-  if (!input) {
-    console.error(`❌ No se encontró el input para ${key}-${tipo}-input`);
-    return;
-  }
-  const valor = parseInt(input.value) || 0;
-  await updateDoc(ref, { [path + '.' + tipo]: valor });
-  console.log(`✅ ${path}.${tipo} actualizado a ${valor}`);
-};
-
+      const partes = path.split('.');
+      const key = partes[partes.length - 1];
+      const input = document.getElementById(`${key}-${tipo}-input`);
+      
+      if (!input) {
+        console.error(`❌ No se encontró el input para ${key}-${tipo}-input`);
+        return;
+      }
+      
+      const valor = parseInt(input.value) || 0;
+      
+      try {
+        await updateDoc(ref, { [`${path}.${tipo}`]: valor });
+        showSuccessMessage(`✅ Actualizado: ${key} ${tipo} = ${valor}`);
+      } catch (error) {
+        console.error('Error al actualizar:', error);
+        showSuccessMessage('❌ Error al actualizar');
+      }
+    };
   </script>
 </body>
 </html>
