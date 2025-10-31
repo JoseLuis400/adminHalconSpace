@@ -616,6 +616,29 @@ button:disabled {
     <div id="holdTime"></div>
   </div>
 
+  <div class="section">
+    <div class="section-title">Control de Estado</div>
+    <div class="btn-grid">
+      <button class="btn-programado" data-estado="programado">Programado</button>
+      <button class="btn-hold" data-estado="hold">Hold</button>
+      <button class="btn-scrub" data-estado="scrub">Scrub</button>
+      <button class="btn-exito" data-estado="exito">Éxito</button>
+      <button class="btn-fallo" data-estado="fallo">Fallo</button>
+      <button class="btn-envuelo" data-estado="en vuelo">En Vuelo</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Modificar T-0</div>
+    <form id="formT0">
+      <div class="form-grid">
+        <input type="date" name="fecha" required>
+        <input type="time" name="hora" step="1" required>
+      </div>
+      <button type="submit" class="btn-submit">Actualizar</button>
+    </form>
+  </div>
+
   <div class="section" id="windowSection">
     <div class="section-title">🪟 Ventana de Lanzamiento</div>
     
@@ -648,29 +671,6 @@ button:disabled {
 
     <button id="btnEliminarWindow" class="btn-danger" style="display: none; margin-top: 0.5rem;">Eliminar Ventana</button>
     <button id="btnEditarWindow" class="btn-submit" style="display: none; margin-top: 0.5rem;">Editar Ventana</button>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Control de Estado</div>
-    <div class="btn-grid">
-      <button class="btn-programado" data-estado="programado">Programado</button>
-      <button class="btn-hold" data-estado="hold">Hold</button>
-      <button class="btn-scrub" data-estado="scrub">Scrub</button>
-      <button class="btn-exito" data-estado="exito">Éxito</button>
-      <button class="btn-fallo" data-estado="fallo">Fallo</button>
-      <button class="btn-envuelo" data-estado="en vuelo">En Vuelo</button>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Modificar T-0</div>
-    <form id="formT0">
-      <div class="form-grid">
-        <input type="date" name="fecha" required>
-        <input type="time" name="hora" step="1" required>
-      </div>
-      <button type="submit" class="btn-submit">Actualizar</button>
-    </form>
   </div>
 
   <div class="section">
