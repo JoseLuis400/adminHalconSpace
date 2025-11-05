@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planeta Kerbin - KSP</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            max-width: 250px;
+        }
+        #info h2 {
+            margin: 0 0 10px 0;
+            color: #4fc3f7;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="info">
+        <h2>Planeta Kerbin</h2>
+        <p>Arrastra para rotar la cámara<br>
+        Scroll para hacer zoom</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer, kerbin, sun, stars;
+        
+        function init() {
+            // Escena
+            scene = new THREE.Scene();
+            
+            // Cámara
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 15);
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Estrellas de fondo
+            createStars();
+            
+            // Planeta Kerbin
+            const kerbinGeometry = new THREE.SphereGeometry(5, 64, 64);
+            
+            // Cargar textura de Kerbin
+            const textureLoader = new THREE.TextureLoader();
+            const texture = textureLoader.load('img/kerbin.png');
+            
+            const kerbinMaterial = new THREE.MeshPhongMaterial({
+                map: texture,
+                shininess: 15,
+                specular: 0x333333
+            });
+            
+            kerbin = new THREE.Mesh(kerbinGeometry, kerbinMaterial);
+            kerbin.castShadow = true;
+            kerbin.receiveShadow = true;
+            scene.add(kerbin);
+            
+            // Atmósfera con efecto de resplandor
+            const atmosphereGeometry = new THREE.SphereGeometry(5.3, 64, 64);
+            const atmosphereMaterial = new THREE.ShaderMaterial({
+                vertexShader: `
+                    varying vec3 vNormal;
+                    varying vec3 vPosition;
+                    void main() {
+                        vNormal = normalize(normalMatrix * normal);
+                        vPosition = position;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vNormal;
+                    varying vec3 vPosition;
+                    void main() {
+                        vec3 normal = normalize(vNormal);
+                        float intensity = pow(0.7 - dot(normal, vec3(0.0, 0.0, 1.0)), 2.0);
+                        gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity;
+                    }
+                `,
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide,
+                transparent: true
+            });
+            
+            const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+            scene.add(atmosphere);
+            
+            // Luz del Sol
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            sunLight.position.set(20, 5, 10);
+            sunLight.castShadow = true;
+            scene.add(sunLight);
+            
+            // Luz ambiental tenue
+            const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+            scene.add(ambientLight);
+            
+            // Sol visual
+            const sunGeometry = new THREE.SphereGeometry(2, 32, 32);
+            const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            sun = new THREE.Mesh(sunGeometry, sunMaterial);
+            sun.position.copy(sunLight.position);
+            scene.add(sun);
+            
+            // Resplandor del sol
+            const glowGeometry = new THREE.SphereGeometry(2.5, 32, 32);
+            const glowMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffaa00,
+                transparent: true,
+                opacity: 0.3
+            });
+            const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+            glow.position.copy(sunLight.position);
+            scene.add(glow);
+            
+            // Controles de cámara con mouse
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            let cameraRotation = { theta: 0, phi: Math.PI / 2 };
+            const cameraDistance = 15;
+            
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+            
+            renderer.domElement.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+                    
+                    cameraRotation.theta -= deltaX * 0.01;
+                    cameraRotation.phi -= deltaY * 0.01;
+                    
+                    // Limitar phi para evitar que la cámara se voltee
+                    cameraRotation.phi = Math.max(0.1, Math.min(Math.PI - 0.1, cameraRotation.phi));
+                    
+                    updateCameraPosition();
+                    
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                }
+            });
+            
+            renderer.domElement.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+            
+            function updateCameraPosition() {
+                camera.position.x = cameraDistance * Math.sin(cameraRotation.phi) * Math.cos(cameraRotation.theta);
+                camera.position.y = cameraDistance * Math.cos(cameraRotation.phi);
+                camera.position.z = cameraDistance * Math.sin(cameraRotation.phi) * Math.sin(cameraRotation.theta);
+                camera.lookAt(0, 0, 0);
+            }
+            
+            // Zoom con scroll
+            let zoomLevel = 15;
+            
+            renderer.domElement.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                zoomLevel += e.deltaY * 0.01;
+                zoomLevel = Math.max(8, Math.min(30, zoomLevel));
+                
+                camera.position.x = zoomLevel * Math.sin(cameraRotation.phi) * Math.cos(cameraRotation.theta);
+                camera.position.y = zoomLevel * Math.cos(cameraRotation.phi);
+                camera.position.z = zoomLevel * Math.sin(cameraRotation.phi) * Math.sin(cameraRotation.theta);
+                camera.lookAt(0, 0, 0);
+            });
+            
+            // Responsive
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+            
+            animate();
+        }
+        
+        function createStars() {
+            const starGeometry = new THREE.BufferGeometry();
+            const starVertices = [];
+            
+            for (let i = 0; i < 10000; i++) {
+                const x = (Math.random() - 0.5) * 2000;
+                const y = (Math.random() - 0.5) * 2000;
+                const z = (Math.random() - 0.5) * 2000;
+                starVertices.push(x, y, z);
+            }
+            
+            starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+            
+            const starMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.7
+            });
+            
+            stars = new THREE.Points(starGeometry, starMaterial);
+            scene.add(stars);
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Rotación automática lenta de Kerbin
+            kerbin.rotation.y += 0.001;
+            
+            renderer.render(scene, camera);
+        }
+        
+        init();
+    </script>
+</body>
+</html>
