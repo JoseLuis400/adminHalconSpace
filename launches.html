@@ -960,6 +960,7 @@ button[type="submit"]:hover {
     formMision.fecha.value = formatoFechaInput(mision.fecha);
     formMision.timeUTC.value = mision.timeUTC || "00:00:00";
     formMision.contador.value = mision.contador !== undefined ? String(mision.contador) : "false";
+    formMision.typeDate.value = mision.typeDate || "normal";
     formMision.vehiculo.value = mision.vehiculo;
     formMision.estado.value = mision.estado;
     formMision.plataforma.value = mision.plataforma || "";
