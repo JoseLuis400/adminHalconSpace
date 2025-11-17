@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Overlay KSP</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: transparent;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .overlay {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 50px;
+      width: 900px;
+      height: 70px;
+      display: flex;
+      justify-content: space-between;
+      padding: 15px 80px;
+      background: rgba(0, 0, 0, 0.7);
+      clip-path: polygon(10% 0, 90% 0, 100% 100%, 0 100%);
+      border-radius: 15px;
+      z-index: 1;
+      overflow: visible;
+    }
+
+    .tiempoDIV {
+      clip-path: polygon(25% -20%, 80% 0, 100% 100%, 0 100%);
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px 60px;
+      margin: -20px;
+      width: 250px;
+      position: relative;
+      overflow: visible;
+    }
+
+    .tiempoDIV .elementos {
+      position: relative;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      line-height: 60px;
+    }
+
+    .data-box { text-align: center; }
+    .data-box span { display: block; }
+    .data-box small { font-size: 15px; color: #ccc; }
+    .velocidad { padding-left: 50px; }
+    .altitud { padding-right: 50px; }
+    #speed-element, #altitude-element { font-size: 30px; font-weight: bold; }
+    #unidad { font-size: 18px; color: #ccc; }
+
+    .missionName-widget {
+      width: 220px;
+      height: auto;
+      position: fixed;
+      bottom: 35px;
+      left: 870px;
+      z-index: 4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 5px 0;
+      box-sizing: border-box;
+      text-align: center;
+      color: #ccc;
+    }
+
+    .fondoMissionName {
+      clip-path: polygon(0 0, 100% 0, 100% 0%, 90% 100%, 10% 100%, 10% 100%);
+      background: rgba(0, 0, 0, 0.9);
+      position: fixed;
+      bottom: 30px;
+      left: 850px;
+      width: 250px;
+      height: 20px;
+    }
+
+    .timer.countdown {
+      font-size: 38px;
+      font-weight: bold;
+      white-space: nowrap;
+      min-width: 270px;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .timer-count-digit { display: inline-block; transition: transform 0.3s ease, opacity 0.3s ease; }
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <div class="data-box velocidad">
+      <span id="spanTipe">VELOCIDAD RELATIVA</span>
+      <span id="speed-element">----</span>
+      <small id="unidad">KM/H</small>
+    </div>
+    <div class="data-box tiempoDIV">
+      <div class="elementos">
+        <span class="timer countdown" id="timer-element">T+01:20:00</span>
+      </div>
+      <div class="statusMission" id="status"></div>
+    </div>
+    <div class="data-box altitud">
+      <span id="spanTipe">DISTANCIA RELATIVA</span>
+      <span id="altitude-element">----</span>
+      <small id="unidad">M</small>
+    </div>
+  </div>
+
+  <div class="missionName-widget">
+    <small id="missionName-element">Eagle Coming 15</small>
+  </div>
+  <div class="fondoMissionName"></div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+// Config Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+  authDomain: "halcon-space-348e7.firebaseapp.com",
+  projectId: "halcon-space-348e7",
+  storageBucket: "halcon-space-348e7.firebasestorage.app",
+  messagingSenderId: "741724706453",
+  appId: "1:741724706453:web:519531e63f2b923f952d9c",
+  measurementId: "G-VG1Y2YMY4W"
+};
+
+// Inicializar Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// --- Telemetría (velocidad y altitud) ---
+const docTelemetry = doc(db, "telemetria", "estado_actual");
+let velocidadSuavizada = 0;
+let altitudSuavizada = 0;
+
+onSnapshot(docTelemetry, (snap) => {
+  if (!snap.exists()) return;
+  const datos = snap.data();
+  const velocidadKMHReal = datos.objetivo.velocidad_relativa ?? 0;
+  const altitudKMReal = (datos.distancia ?? 0) / 1000;
+
+  // Inicialización en la primera lectura
+  if (velocidadSuavizada === 0 && altitudSuavizada === 0) {
+    velocidadSuavizada = velocidadKMHReal;
+    altitudSuavizada = altitudKMReal;
+  }
+
+  // Suavizado
+  velocidadSuavizada += (velocidadKMHReal - velocidadSuavizada) * 0.1;
+  altitudSuavizada += (altitudKMReal - altitudSuavizada) * 0.1;
+
+  const altitudParaMostrar = altitudSuavizada <= 99.9 ? altitudSuavizada.toFixed(1) : altitudSuavizada.toFixed(0);
+  document.getElementById("speed-element").textContent = datos.objetivo.velocidad_relativa.toFixed(0);
+  document.getElementById("altitude-element").textContent = datos.objetivo.distancia.toFixed(1);
+});
+
+// --- T+ y Nombre de misión ---
+const params = new URLSearchParams(window.location.search);
+const lanzamientoId = params.get("id") ?? "demo"; // usar demo si no se pasa id
+
+let objetivoUTC = new Date(Date.now() - 4800*1000); // T+ inicial de ejemplo 1h20m atrás
+let estado = "normal";
+let holdUTC = null;
+let intervalId = null;
+
+// Nombre de misión por defecto
+document.getElementById("missionName-element").textContent = "Eagle Coming 15";
+
+function formatearTiempo(diffSegundos) {
+  const esPositivo = diffSegundos >= 0;
+  const horas = Math.floor(Math.abs(diffSegundos) / 3600);
+  const minutos = Math.floor((Math.abs(diffSegundos) % 3600) / 60);
+  const segundos = Math.floor(Math.abs(diffSegundos) % 60);
+  return `${esPositivo ? "T+" : "T-"} ${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+}
+
+function actualizarTimer() {
+  if (!objetivoUTC) return;
+  let diffSegundos;
+
+  if ((estado === "hold" || estado === "scrub") && holdUTC) {
+    diffSegundos = Math.floor((holdUTC.getTime() - objetivoUTC.getTime()) / 1000);
+    document.getElementById('status').textContent = estado;
+  } else {
+    diffSegundos = Math.floor((Date.now() - objetivoUTC.getTime()) / 1000);
+    document.getElementById('status').textContent = "";
+  }
+
+  actualizarTimerAnimado(diffSegundos);
+}
+
+function actualizarTimerAnimado(diffSegundos) {
+  const formatted = formatearTiempo(diffSegundos);
+  const timerElem = document.getElementById("timer-element");
+  const oldText = timerElem.textContent;
+  timerElem.innerHTML = '';
+
+  for (let i = 0; i < formatted.length; i++) {
+    const span = document.createElement('span');
+    span.className = 'timer-count-digit';
+    span.textContent = formatted[i];
+
+    if (oldText[i] !== formatted[i]) {
+      span.style.opacity = 0;
+      span.style.transform = 'translateY(-20px)';
+      setTimeout(() => {
+        span.style.opacity = 1;
+        span.style.transform = 'translateY(0)';
+      }, 20);
+    }
+
+    timerElem.appendChild(span);
+  }
+}
+
+// Referencia a lanzamiento
+const refDocLanz = doc(db, "lanzamientos", lanzamientoId);
+onSnapshot(refDocLanz, (snap) => {
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+
+  // Actualizar nombre de misión
+  if (data.nombre) document.getElementById("missionName-element").textContent = data.nombre;
+
+  estado = data.estado ?? "normal";
+  objetivoUTC = data.utcTime ? new Date(data.utcTime) : objetivoUTC; // usar demo si falta
+  holdUTC = data.holdTime ? new Date(data.holdTime) : null;
+
+  if (intervalId) clearInterval(intervalId);
+  actualizarTimer();
+  intervalId = setInterval(actualizarTimer, 1000);
+});
+
+  </script>
+</body>
+</html>
