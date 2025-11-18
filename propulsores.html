@@ -3,79 +3,576 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Editor de Propulsores</title>
+<title>Editor de Propulsores Halcon Space</title>
 <style>
-body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; }
-h1 { text-align: center; margin-bottom: 20px; }
-.container { display: flex; flex-direction: column; gap: 20px; max-width: 1200px; margin: 0 auto; }
-#editor { background: #1e1e1e; padding: 20px; border-radius: 10px; }
-#editor label { display: block; margin-top: 10px; }
-#editor input, #editor select { width: 100%; padding: 8px; margin-top: 4px; border-radius: 5px; border: none; }
-#vuelos { margin-top: 20px; }
-.vuelo { display: flex; gap: 10px; margin-bottom: 10px; }
-.vuelo input { flex: 1; }
-button { margin-top: 10px; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; background: #2196f3; color: #fff; }
-button:hover { background: #1769aa; }
-#propulsorCards { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; }
-.card { background: #1e1e1e; padding: 10px; border-radius: 10px; width: 200px; cursor: pointer; text-align: center; transition: transform 0.2s; }
-.card:hover { transform: scale(1.05); }
-.card img {
-  width: 100%;
-  height: 150px; /* o 180px según prefieras */
-  object-fit: cover; /* recorta la imagen pero mantiene proporción */
-  border-radius: 5px;
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+  background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%); 
+  color: #e0e0e0; 
+  min-height: 100vh;
+  padding: 20px;
 }
 
-.card.selected { border: 2px solid #2196f3; }
+header {
+  text-align: center;
+  margin-bottom: 40px;
+  padding: 20px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+
+h1 { 
+  font-size: 2.5em; 
+  background: linear-gradient(45deg, #2196f3, #00bcd4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  color: #b0b0b0;
+  font-size: 1.1em;
+}
+
+.container { 
+  max-width: 1600px; 
+  margin: 0 auto; 
+}
+
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.3s;
+}
+
+.modal.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-content {
+  background: rgba(20, 20, 20, 0.95);
+  border-radius: 20px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+  animation: slideUp 0.4s;
+  position: relative;
+}
+
+.modal-header {
+  padding: 30px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  background: rgba(20, 20, 20, 0.95);
+  backdrop-filter: blur(10px);
+  z-index: 10;
+}
+
+.modal-header h2 {
+  font-size: 1.8em;
+  background: linear-gradient(45deg, #2196f3, #00bcd4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+}
+
+.close-modal {
+  background: rgba(244, 67, 54, 0.2);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  color: #f44336;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  padding: 0;
+}
+
+.close-modal:hover {
+  background: rgba(244, 67, 54, 0.3);
+  transform: rotate(90deg);
+}
+
+.modal-body {
+  padding: 30px;
+}
+
+#editor { 
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  border: none;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label { 
+  display: block; 
+  margin-bottom: 8px;
+  color: #b0b0b0;
+  font-weight: 500;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group input, .form-group select { 
+  width: 100%; 
+  padding: 12px 15px; 
+  border-radius: 8px; 
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  font-size: 1em;
+  transition: all 0.3s;
+}
+
+.form-group input:focus, .form-group select:focus {
+  outline: none;
+  border-color: #2196f3;
+  background: rgba(33, 150, 243, 0.1);
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+#vuelos {
+  margin-top: 30px;
+  padding-top: 30px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+#vuelos h3 {
+  margin-bottom: 20px;
+  color: #2196f3;
+  font-size: 1.2em;
+}
+
+.vuelo { 
+  display: grid;
+  grid-template-columns: 80px 1fr 120px 40px;
+  gap: 10px; 
+  margin-bottom: 12px;
+  padding: 15px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: all 0.3s;
+}
+
+.vuelo:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(33, 150, 243, 0.3);
+}
+
+.vuelo input { 
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  font-size: 0.9em;
+}
+
+.vuelo-expanded {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+button { 
+  padding: 12px 20px; 
+  border: none; 
+  border-radius: 8px; 
+  cursor: pointer; 
+  font-weight: 600;
+  font-size: 1em;
+  transition: all 0.3s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-primary {
+  background: linear-gradient(45deg, #2196f3, #00bcd4);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+}
+
+.btn-primary:hover { 
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
+}
+
+.btn-secondary {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.btn-secondary:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.btn-danger {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  padding: 8px 12px;
+  font-size: 0.9em;
+}
+
+.btn-danger:hover {
+  background: rgba(244, 67, 54, 0.3);
+}
+
+.btn-new {
+  background: linear-gradient(45deg, #4caf50, #8bc34a);
+  color: #fff;
+  margin-bottom: 20px;
+  width: 100%;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.btn-new:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+#propulsorCards { 
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.card { 
+  background: rgba(30, 30, 30, 0.8); 
+  padding: 0;
+  border-radius: 12px; 
+  cursor: pointer; 
+  transition: all 0.3s;
+  border: 2px solid transparent;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.card:hover { 
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(33, 150, 243, 0.3);
+  border-color: rgba(33, 150, 243, 0.5);
+}
+
+.card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-bottom: 2px solid rgba(255,255,255,0.1);
+}
+
+.card-content {
+  padding: 20px;
+}
+
+.card h4 {
+  font-size: 1.3em;
+  margin-bottom: 10px;
+  color: #2196f3;
+}
+
+.card-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 0.9em;
+  color: #b0b0b0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-activo {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.badge-destruido {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.badge-retirado {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+  border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.card.selected { 
+  border-color: #2196f3;
+  box-shadow: 0 0 30px rgba(33, 150, 243, 0.5);
+}
+
+.vuelos-count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  color: #2196f3;
+  font-weight: 600;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.action-buttons button {
+  flex: 1;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  background: rgba(255,255,255,0.05);
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.stat-number {
+  font-size: 2em;
+  font-weight: bold;
+  background: linear-gradient(45deg, #2196f3, #00bcd4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.stat-label {
+  color: #b0b0b0;
+  font-size: 0.9em;
+  margin-top: 5px;
+}
+
+.search-bar {
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 15px 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  font-size: 1em;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    max-height: 95vh;
+  }
+  
+  .modal-header {
+    padding: 20px;
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
+  
+  #propulsorCards {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+  
+  .vuelo {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+  }
+  
+  .stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #b0b0b0;
+  font-size: 1.2em;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #b0b0b0;
+}
+
+.empty-state svg {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
 </style>
 </head>
 <body>
 
-<h1>Editor de Propulsores</h1>
-<div class="container">
-  <div id="editor">
-    <label>ID del propulsor (ej: B1054)
-      <input type="text" id="propId" placeholder="ID Propulsor">
-    </label>
-    <label>Estado
-      <select id="estado">
-        <option value="activo">Activo</option>
-        <option value="destruido">Destruido</option>
-        <option value="retirado">Retirado</option>
-      </select>
-    </label>
-    <label>Tipo
-        <select id="tipo">
-          <option value="Falcon Heavy Side">Falcon Heavy Side</option>
-          <option value="Falcon 9">Falcon 9</option>
-          <option value="Falcon Heavy Antes F9">Falcon Heavy Antes F9</option>
-          <option value="Falcon Heavy">Falcon Heavy</option>
-          <option value="Falcon Heavy Center">Falcon Heavy Center</option>
-        </select>
-      </label>
-      
-      
-      <!-- input opcional que aparece solo si selecciona "Otro" -->
-      <input type="text" id="tipoOtro" placeholder="Especifique otro tipo" style="display:none; margin-top:5px;">
-      
+<header>
+  <h1>🚀 Editor de Propulsores Halcon Space</h1>
+  <p class="subtitle">Gestión avanzada de boosters reutilizables</p>
+</header>
 
-    <div id="vuelos">
-      <h3>Vuelos</h3>
-      <div id="vuelosContainer"></div>
-      <button type="button" id="addVuelo">Agregar Vuelo</button>
-    </div>
-
-    <button type="button" id="savePropulsor">Guardar Propulsor</button>
+<div class="stats" id="stats">
+  <div class="stat-card">
+    <div class="stat-number" id="totalPropulsores">0</div>
+    <div class="stat-label">Total Propulsores</div>
   </div>
+  <div class="stat-card">
+    <div class="stat-number" id="totalVuelos">0</div>
+    <div class="stat-label">Total Vuelos</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-number" id="activosPropulsores">0</div>
+    <div class="stat-label">Activos</div>
+  </div>
+</div>
 
-  <div id="propulsorCards"></div>
+<div class="container">
+  <div>
+    <button type="button" class="btn-new" id="newPropulsor">+ Nuevo Propulsor</button>
+    
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="🔍 Buscar propulsor por ID, tipo o estado...">
+    </div>
+    
+    <div id="propulsorCards"></div>
+  </div>
+</div>
+
+<!-- Modal para editar propulsor -->
+<div id="editorModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="modalTitle">✏️ Editar Propulsor</h2>
+      <button class="close-modal" id="closeModal">✖</button>
+    </div>
+    <div class="modal-body">
+      <div id="editor">
+        <div class="form-group">
+          <label>ID del Propulsor</label>
+          <input type="text" id="propId" placeholder="Ej: B1054">
+        </div>
+
+        <div class="form-group">
+          <label>Estado</label>
+          <select id="estado">
+            <option value="activo">🟢 Activo</option>
+            <option value="destruido">🔴 Destruido</option>
+            <option value="retirado">🟡 Retirado</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Tipo de Propulsor</label>
+          <select id="tipo">
+            <option value="Falcon 9">Falcon 9</option>
+            <option value="Falcon Heavy Side">Falcon Heavy Side</option>
+            <option value="Falcon Heavy Center">Falcon Heavy Center</option>
+            <option value="Falcon Heavy">Falcon Heavy</option>
+            <option value="Falcon Heavy Antes F9">Falcon Heavy Antes F9</option>
+          </select>
+        </div>
+
+        <div id="vuelos">
+          <h3>📋 Historial de Vuelos</h3>
+          <div id="vuelosContainer"></div>
+          <button type="button" class="btn-secondary" id="addVuelo" style="width: 100%; margin-top: 10px;">+ Agregar Vuelo</button>
+        </div>
+
+        <div class="action-buttons">
+          <button type="button" class="btn-primary" id="savePropulsor">💾 Guardar</button>
+          <button type="button" class="btn-secondary" id="cancelEdit">✖ Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-import { getFirestore, collection, doc, getDocs, setDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
 
-// Config Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
   authDomain: "halcon-space-348e7.firebaseapp.com",
@@ -85,106 +582,191 @@ const firebaseConfig = {
   appId: "1:741724706453:web:519531e63f2b923f952d9c",
   measurementId: "G-VG1Y2YMY4W"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Elementos
 const propIdInput = document.getElementById('propId');
 const estadoInput = document.getElementById('estado');
 const tipoInput = document.getElementById('tipo');
-const imgInput = document.getElementById('img');
 const vuelosContainer = document.getElementById('vuelosContainer');
 const addVueloBtn = document.getElementById('addVuelo');
 const saveBtn = document.getElementById('savePropulsor');
+const cancelBtn = document.getElementById('cancelEdit');
+const newBtn = document.getElementById('newPropulsor');
 const propulsorCards = document.getElementById('propulsorCards');
+const searchInput = document.getElementById('searchInput');
+const editorModal = document.getElementById('editorModal');
+const closeModalBtn = document.getElementById('closeModal');
+const modalTitle = document.getElementById('modalTitle');
 
 let selectedPropId = null;
+let allPropulsores = [];
 
-// Función para crear inputs de vuelo
+// Funciones del modal
+function openModal(isNew = false) {
+  editorModal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+  modalTitle.textContent = isNew ? '🚀 Nuevo Propulsor' : '✏️ Editar Propulsor';
+}
+
+function closeModal() {
+  editorModal.classList.remove('active');
+  document.body.style.overflow = 'auto';
+}
+
+// Event listeners del modal
+closeModalBtn.addEventListener('click', closeModal);
+editorModal.addEventListener('click', (e) => {
+  if (e.target === editorModal) {
+    closeModal();
+  }
+});
+
+// Cerrar modal con ESC
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && editorModal.classList.contains('active')) {
+    closeModal();
+  }
+});
+
 function crearVuelo(key = '', mision = '', fecha = '', url = '') {
   const div = document.createElement('div');
   div.classList.add('vuelo');
   div.innerHTML = `
-    <input type="text" placeholder="Clave" value="${key}">
+    <input type="text" placeholder="#" value="${key}" title="Número de vuelo">
     <input type="text" placeholder="Misión" value="${mision}">
     <input type="text" placeholder="Fecha" value="${fecha}">
-    <input type="text" placeholder="URL" value="${url}">
-    <button type="button" class="removeVuelo">X</button>
+    <button type="button" class="btn-danger removeVuelo">🗑</button>
   `;
+  
+  const expandedDiv = document.createElement('div');
+  expandedDiv.classList.add('vuelo-expanded');
+  expandedDiv.innerHTML = `
+    <input type="text" placeholder="URL de la misión" value="${url}">
+  `;
+  
+  div.appendChild(expandedDiv);
   div.querySelector('.removeVuelo').addEventListener('click', () => div.remove());
   vuelosContainer.appendChild(div);
 }
 
-// Agregar vuelo
 addVueloBtn.addEventListener('click', () => crearVuelo());
 
-// Cargar propulsores
+newBtn.addEventListener('click', () => {
+  selectedPropId = null;
+  clearForm();
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+  openModal(true);
+});
+
+cancelBtn.addEventListener('click', () => {
+  clearForm();
+  selectedPropId = null;
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+  closeModal();
+});
+
+function clearForm() {
+  propIdInput.value = '';
+  estadoInput.value = 'activo';
+  tipoInput.value = 'Falcon 9';
+  vuelosContainer.innerHTML = '';
+}
+
 async function loadPropulsores() {
-  propulsorCards.innerHTML = '';
-
-  // Traer todos los documentos
+  propulsorCards.innerHTML = '<div class="loading">Cargando propulsores...</div>';
+  
   const snapshot = await getDocs(collection(db, 'propulsores'));
+  allPropulsores = [];
+  
+  snapshot.forEach(docSnap => {
+    allPropulsores.push({ id: docSnap.id, ...docSnap.data() });
+  });
+  
+  allPropulsores.reverse();
+  displayPropulsores(allPropulsores);
+  updateStats();
+}
 
-  // Convertir a array para poder invertir el orden
-  const docsArray = [];
-  snapshot.forEach(docSnap => docsArray.push(docSnap));
-
-  // Recorrer en orden inverso
-  docsArray.reverse().forEach(docSnap => {
-    const data = docSnap.data();
-    const vuelosCount = Object.keys(data.vuelos || {}).length;
-
+function displayPropulsores(propulsores) {
+  propulsorCards.innerHTML = '';
+  
+  if (propulsores.length === 0) {
+    propulsorCards.innerHTML = `
+      <div class="empty-state">
+        <svg fill="currentColor" viewBox="0 0 20 20">
+          <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/>
+        </svg>
+        <p>No se encontraron propulsores</p>
+      </div>
+    `;
+    return;
+  }
+  
+  propulsores.forEach(propulsor => {
+    const vuelosCount = Object.keys(propulsor.vuelos || {}).length;
     const card = document.createElement('div');
     card.classList.add('card');
+    if (selectedPropId === propulsor.id) {
+      card.classList.add('selected');
+    }
+    
     card.innerHTML = `
-      <img src="${data.img}" alt="${docSnap.id}">
-      <h4>${docSnap.id}</h4>
-      <p>${data.tipo} - ${data.estado}</p>
-      <p>Vuelos: ${vuelosCount}</p>
+      <img src="${propulsor.img}" alt="${propulsor.id}" onerror="this.src='https://via.placeholder.com/250x180/1e1e1e/2196f3?text=${propulsor.id}'">
+      <div class="card-content">
+        <h4>${propulsor.id}</h4>
+        <div class="card-info">
+          <span>${propulsor.tipo}</span>
+          <span class="badge badge-${propulsor.estado}">${propulsor.estado}</span>
+        </div>
+        <div class="vuelos-count">
+          <span>🚀</span>
+          <span>${vuelosCount} vuelo${vuelosCount !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
     `;
-
-    // Selección de propulsor
+    
     card.addEventListener('click', () => {
-      selectedPropId = docSnap.id;
+      selectedPropId = propulsor.id;
       document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
-      loadToForm(docSnap.id, data);
+      loadToForm(propulsor.id, propulsor);
+      openModal(false);
     });
-
+    
     propulsorCards.appendChild(card);
   });
 }
 
-// Cargar datos al formulario
 function loadToForm(id, data) {
   propIdInput.value = id;
   estadoInput.value = data.estado;
   tipoInput.value = data.tipo;
   vuelosContainer.innerHTML = '';
-  const vuelosOrdenados = Object.entries(data.vuelos || {})
-  .sort((a, b) => {
+  
+  const vuelosOrdenados = Object.entries(data.vuelos || {}).sort((a, b) => {
     const numA = parseFloat(a[0].split('.')[1]) || 0;
     const numB = parseFloat(b[0].split('.')[1]) || 0;
     return numA - numB;
   });
 
-for (const [key, vuelo] of vuelosOrdenados) {
-  crearVuelo(key, vuelo.mision, vuelo.fecha, vuelo.url);
+  vuelosOrdenados.forEach(([key, vuelo]) => {
+    crearVuelo(key, vuelo.mision, vuelo.fecha, vuelo.url);
+  });
 }
 
-
-}
-
-// Guardar propulsor
 saveBtn.addEventListener('click', async () => {
   const propId = propIdInput.value.trim();
-  if (!propId) return alert('ID del propulsor obligatorio');
+  if (!propId) {
+    alert('⚠️ El ID del propulsor es obligatorio');
+    return;
+  }
 
   const estado = estadoInput.value;
   const tipo = tipoInput.value;
   const img = `https://halconspace.site/img/propulsores/${propId}.png`;
 
-  // Recolectar vuelos
   const vuelos = {};
   vuelosContainer.querySelectorAll('.vuelo').forEach(v => {
     const inputs = v.querySelectorAll('input');
@@ -198,12 +780,39 @@ saveBtn.addEventListener('click', async () => {
     }
   });
 
-  // 🔥 unifica el nombre de la colección (todo minúscula para evitar confusión)
-  await setDoc(doc(db, 'propulsores', propId), { estado, tipo, img, vuelos });
-
-  alert('Propulsor guardado!');
-  loadPropulsores();
+  try {
+    await setDoc(doc(db, 'propulsores', propId), { estado, tipo, img, vuelos });
+    alert('✅ Propulsor guardado exitosamente!');
+    await loadPropulsores();
+    clearForm();
+    selectedPropId = null;
+    closeModal();
+  } catch (error) {
+    alert('❌ Error al guardar: ' + error.message);
+  }
 });
+
+searchInput.addEventListener('input', (e) => {
+  const searchTerm = e.target.value.toLowerCase();
+  const filtered = allPropulsores.filter(p => 
+    p.id.toLowerCase().includes(searchTerm) ||
+    p.tipo.toLowerCase().includes(searchTerm) ||
+    p.estado.toLowerCase().includes(searchTerm)
+  );
+  displayPropulsores(filtered);
+});
+
+function updateStats() {
+  const total = allPropulsores.length;
+  const activos = allPropulsores.filter(p => p.estado === 'activo').length;
+  const totalVuelos = allPropulsores.reduce((sum, p) => 
+    sum + Object.keys(p.vuelos || {}).length, 0
+  );
+  
+  document.getElementById('totalPropulsores').textContent = total;
+  document.getElementById('totalVuelos').textContent = totalVuelos;
+  document.getElementById('activosPropulsores').textContent = activos;
+}
 
 loadPropulsores();
 </script>

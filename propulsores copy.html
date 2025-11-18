@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor de Propulsores</title>
+<style>
+body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; }
+h1 { text-align: center; margin-bottom: 20px; }
+.container { display: flex; flex-direction: column; gap: 20px; max-width: 1200px; margin: 0 auto; }
+#editor { background: #1e1e1e; padding: 20px; border-radius: 10px; }
+#editor label { display: block; margin-top: 10px; }
+#editor input, #editor select { width: 100%; padding: 8px; margin-top: 4px; border-radius: 5px; border: none; }
+#vuelos { margin-top: 20px; }
+.vuelo { display: flex; gap: 10px; margin-bottom: 10px; }
+.vuelo input { flex: 1; }
+button { margin-top: 10px; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; background: #2196f3; color: #fff; }
+button:hover { background: #1769aa; }
+#propulsorCards { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; }
+.card { background: #1e1e1e; padding: 10px; border-radius: 10px; width: 200px; cursor: pointer; text-align: center; transition: transform 0.2s; }
+.card:hover { transform: scale(1.05); }
+.card img {
+  width: 100%;
+  height: 150px; /* o 180px según prefieras */
+  object-fit: cover; /* recorta la imagen pero mantiene proporción */
+  border-radius: 5px;
+}
+
+.card.selected { border: 2px solid #2196f3; }
+</style>
+</head>
+<body>
+
+<h1>Editor de Propulsores</h1>
+<div class="container">
+  <div id="editor">
+    <label>ID del propulsor (ej: B1054)
+      <input type="text" id="propId" placeholder="ID Propulsor">
+    </label>
+    <label>Estado
+      <select id="estado">
+        <option value="activo">Activo</option>
+        <option value="destruido">Destruido</option>
+        <option value="retirado">Retirado</option>
+      </select>
+    </label>
+    <label>Tipo
+        <select id="tipo">
+          <option value="Falcon Heavy Side">Falcon Heavy Side</option>
+          <option value="Falcon 9">Falcon 9</option>
+          <option value="Falcon Heavy Antes F9">Falcon Heavy Antes F9</option>
+          <option value="Falcon Heavy">Falcon Heavy</option>
+          <option value="Falcon Heavy Center">Falcon Heavy Center</option>
+        </select>
+      </label>
+      
+      
+      <!-- input opcional que aparece solo si selecciona "Otro" -->
+      <input type="text" id="tipoOtro" placeholder="Especifique otro tipo" style="display:none; margin-top:5px;">
+      
+
+    <div id="vuelos">
+      <h3>Vuelos</h3>
+      <div id="vuelosContainer"></div>
+      <button type="button" id="addVuelo">Agregar Vuelo</button>
+    </div>
+
+    <button type="button" id="savePropulsor">Guardar Propulsor</button>
+  </div>
+
+  <div id="propulsorCards"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+import { getFirestore, collection, doc, getDocs, setDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+// Config Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+  authDomain: "halcon-space-348e7.firebaseapp.com",
+  projectId: "halcon-space-348e7",
+  storageBucket: "halcon-space-348e7.firebasestorage.app",
+  messagingSenderId: "741724706453",
+  appId: "1:741724706453:web:519531e63f2b923f952d9c",
+  measurementId: "G-VG1Y2YMY4W"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Elementos
+const propIdInput = document.getElementById('propId');
+const estadoInput = document.getElementById('estado');
+const tipoInput = document.getElementById('tipo');
+const imgInput = document.getElementById('img');
+const vuelosContainer = document.getElementById('vuelosContainer');
+const addVueloBtn = document.getElementById('addVuelo');
+const saveBtn = document.getElementById('savePropulsor');
+const propulsorCards = document.getElementById('propulsorCards');
+
+let selectedPropId = null;
+
+// Función para crear inputs de vuelo
+function crearVuelo(key = '', mision = '', fecha = '', url = '') {
+  const div = document.createElement('div');
+  div.classList.add('vuelo');
+  div.innerHTML = `
+    <input type="text" placeholder="Clave" value="${key}">
+    <input type="text" placeholder="Misión" value="${mision}">
+    <input type="text" placeholder="Fecha" value="${fecha}">
+    <input type="text" placeholder="URL" value="${url}">
+    <button type="button" class="removeVuelo">X</button>
+  `;
+  div.querySelector('.removeVuelo').addEventListener('click', () => div.remove());
+  vuelosContainer.appendChild(div);
+}
+
+// Agregar vuelo
+addVueloBtn.addEventListener('click', () => crearVuelo());
+
+// Cargar propulsores
+async function loadPropulsores() {
+  propulsorCards.innerHTML = '';
+
+  // Traer todos los documentos
+  const snapshot = await getDocs(collection(db, 'propulsores'));
+
+  // Convertir a array para poder invertir el orden
+  const docsArray = [];
+  snapshot.forEach(docSnap => docsArray.push(docSnap));
+
+  // Recorrer en orden inverso
+  docsArray.reverse().forEach(docSnap => {
+    const data = docSnap.data();
+    const vuelosCount = Object.keys(data.vuelos || {}).length;
+
+    const card = document.createElement('div');
+    card.classList.add('card');
+    card.innerHTML = `
+      <img src="${data.img}" alt="${docSnap.id}">
+      <h4>${docSnap.id}</h4>
+      <p>${data.tipo} - ${data.estado}</p>
+      <p>Vuelos: ${vuelosCount}</p>
+    `;
+
+    // Selección de propulsor
+    card.addEventListener('click', () => {
+      selectedPropId = docSnap.id;
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      loadToForm(docSnap.id, data);
+    });
+
+    propulsorCards.appendChild(card);
+  });
+}
+
+// Cargar datos al formulario
+function loadToForm(id, data) {
+  propIdInput.value = id;
+  estadoInput.value = data.estado;
+  tipoInput.value = data.tipo;
+  vuelosContainer.innerHTML = '';
+  const vuelosOrdenados = Object.entries(data.vuelos || {})
+  .sort((a, b) => {
+    const numA = parseFloat(a[0].split('.')[1]) || 0;
+    const numB = parseFloat(b[0].split('.')[1]) || 0;
+    return numA - numB;
+  });
+
+for (const [key, vuelo] of vuelosOrdenados) {
+  crearVuelo(key, vuelo.mision, vuelo.fecha, vuelo.url);
+}
+
+
+}
+
+// Guardar propulsor
+saveBtn.addEventListener('click', async () => {
+  const propId = propIdInput.value.trim();
+  if (!propId) return alert('ID del propulsor obligatorio');
+
+  const estado = estadoInput.value;
+  const tipo = tipoInput.value;
+  const img = `https://halconspace.site/img/propulsores/${propId}.png`;
+
+  // Recolectar vuelos
+  const vuelos = {};
+  vuelosContainer.querySelectorAll('.vuelo').forEach(v => {
+    const inputs = v.querySelectorAll('input');
+    const key = inputs[0].value.trim();
+    const mision = inputs[1].value.trim();
+    const fecha = inputs[2].value.trim();
+    const url = inputs[3].value.trim();
+
+    if (key) {
+      vuelos[key] = { mision, fecha, url };
+    }
+  });
+
+  // 🔥 unifica el nombre de la colección (todo minúscula para evitar confusión)
+  await setDoc(doc(db, 'propulsores', propId), { estado, tipo, img, vuelos });
+
+  alert('Propulsor guardado!');
+  loadPropulsores();
+});
+
+loadPropulsores();
+</script>
+</body>
+</html>
