@@ -341,7 +341,9 @@ button[type="submit"]:hover {
 .estado-programado { background: #ffa726; color: #000; }
 .estado-en-vuelo { background: #29b6f6; color: #000; }
 .estado-exito { background: #66bb6a; color: #000; }
-.estado-fallido { background: #ef5350; color: #fff; }
+.estado-fallo { background: #ef5350; color: #fff; }
+.estado-scrub { background: #ef5350; color: #fff; }
+.estado-hold { background: #ffa726; color: #000; }
 
 .contador {
   font-weight: bold;
@@ -669,12 +671,29 @@ button[type="submit"]:hover {
       </div>
 
       <div class="form-group">
+        <label for="propulsor">Propulsor *</label>
+        <input type="text" id="propulsor" placeholder="B10xx.x" required>
+      </div>
+
+      <div class="form-group">
+        <label for="recuperacion">Recuperación *</label>
+        <select id="recuperacion" required>
+          <option>Por Confirmar</option>
+          <option value="lz1">LZ-1</option>
+          <option value="lz2">LZ-2</option>
+          <option value="ocisly">OCISLY</option>
+          <option value="jrti">JRTI</option>
+          <option value="desechable">Desechable</option>
+        </select>
+      </div>
+
+      <div class="form-group">
         <label for="estado">Estado *</label>
         <select id="estado" required>
           <option value="programado">Programado</option>
           <option value="en vuelo">En vuelo</option>
           <option value="exito">Éxito</option>
-          <option value="fallido">Fallido</option>
+          <option value="fallo">Fallo</option>
         </select>
       </div>
 
@@ -962,6 +981,8 @@ button[type="submit"]:hover {
     formMision.contador.value = mision.contador !== undefined ? String(mision.contador) : "false";
     formMision.typeDate.value = mision.typeDate || "normal";
     formMision.vehiculo.value = mision.vehiculo;
+    formMision.propulsor.value = mision.propulsor || "";
+    formMision.recuperacion.value = mision.recuperacion;
     formMision.estado.value = mision.estado;
     formMision.plataforma.value = mision.plataforma || "";
     formMision.imagen.value = mision.imagen || "";
@@ -1227,6 +1248,8 @@ button[type="submit"]:hover {
       utcTime,
       contador: formMision.contador.value === "true",
       vehiculo: formMision.vehiculo.value,
+      propulsor: formMision.propulsor.value,
+      recuperacion: formMision.recuperacion.value,
       estado: formMision.estado.value,
       typeDate: formMision.typeDate.value,
       plataforma: formMision.plataforma.value,
