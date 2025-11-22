@@ -1125,6 +1125,21 @@ button[type="submit"]:hover {
           </div>
         `;
       }
+  var vehiculoMision = m.vehiculo;
+  if(m.propulsor) {
+    var vehiculoMision = `${m.vehiculo} - ${m.propulsor}`;
+  }
+
+  
+  if(m.recuperacion) {
+    var recuperacionDIV = `
+    <div class="info-row">
+            <span class="info-label">Recuperación:</span>
+            <span class="info-value">${m.recuperacion.toUpperCase()}</span>
+          </div>`
+  } else {
+    var recuperacionDIV = '';
+  }
   
       return `
       <div class="card-mision" data-id="${m.id}" data-contador="${m.contador ? 'true' : 'false'}" 
@@ -1157,8 +1172,10 @@ button[type="submit"]:hover {
           
           <div class="info-row">
             <span class="info-label">Vehículo:</span>
-            <span class="info-value">${m.vehiculo}</span>
+            <span class="info-value">${vehiculoMision}</span>
           </div>
+
+          ${recuperacionDIV}
           
           <div class="info-row">
             <span class="info-label">Plataforma:</span>
