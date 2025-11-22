@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KALYPSO - Panel de Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #2a2a2a;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --text-muted: #808080;
+            --accent-primary: #c1272d;
+            --accent-secondary: #ff3b3b;
+            --border: #333333;
+            --success: #00ff88;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-secondary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-top: 12px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.disconnected {
+            background: var(--accent-primary);
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+        }
+
+        .status-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .realtime-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 24px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1px;
+            background: var(--border);
+        }
+
+        .data-item {
+            background: var(--bg-secondary);
+            padding: 30px;
+            text-align: center;
+            transition: background 0.2s ease;
+        }
+
+        .data-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .data-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            line-height: 1;
+            margin-bottom: 12px;
+        }
+
+        .data-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .update-footer {
+            padding: 20px;
+            text-align: center;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .update-footer strong {
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        /* Editor de datos */
+        .editor-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+        }
+
+        .editor-card h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: var(--accent-primary);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .form-group input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .form-group input[type="number"]::-webkit-outer-spin-button,
+        .form-group input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-secondary);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+
+        .error-message {
+            background: rgba(255, 59, 59, 0.1);
+            border: 1px solid var(--accent-secondary);
+            color: var(--accent-secondary);
+        }
+
+        .success-message {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        @media (max-width: 1024px) {
+            .grid-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .data-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .editor-card {
+                padding: 20px;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>KALYPSO - Panel de Control</h1>
+            <p>Monitoreo y gestión de la constelación satelital</p>
+            <div class="status-indicator">
+                <div class="status-dot" id="connectionStatus"></div>
+                <span class="status-text" id="connectionText">Conectando...</span>
+            </div>
+        </div>
+
+        <div class="grid-layout">
+            <!-- Vista en tiempo real -->
+            <div class="realtime-card">
+                <div class="card-header">
+                    <h2>Estado Actual</h2>
+                </div>
+                <div class="data-grid">
+                    <div class="data-item">
+                        <div class="data-value" id="displayLaunched">-</div>
+                        <div class="data-label">Satélites Lanzados</div>
+                    </div>
+                    <div class="data-item">
+                        <div class="data-value" id="displayOrbit">-</div>
+                        <div class="data-label">En Órbita</div>
+                    </div>
+                    <div class="data-item">
+                        <div class="data-value" id="displayOperational">-</div>
+                        <div class="data-label">Operativos</div>
+                    </div>
+                    <div class="data-item">
+                        <div class="data-value" id="displayPlanes">-</div>
+                        <div class="data-label">Planos</div>
+                    </div>
+                    <div class="data-item">
+                        <div class="data-value" id="displayLatency">-</div>
+                        <div class="data-label">Latencia</div>
+                    </div>
+                </div>
+                <div class="update-footer">
+                    <p>Última actualización: <strong id="displayLastUpdate">-</strong></p>
+                </div>
+            </div>
+
+            <!-- Editor de datos -->
+            <div class="editor-card">
+                <h2>Actualizar Datos</h2>
+                
+                <div class="form-group">
+                    <label for="editLaunched">Satélites Lanzados</label>
+                    <input type="number" id="editLaunched" min="0" placeholder="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="editOrbit">Satélites en Órbita</label>
+                    <input type="number" id="editOrbit" min="0" placeholder="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="editOperational">Satélites Operativos</label>
+                    <input type="number" id="editOperational" min="0" placeholder="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="editPlanes">Planos Orbitales</label>
+                    <input type="number" id="editPlanes" min="0" max="8" placeholder="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="editLatency">Latencia Promedio (ms)</label>
+                    <input type="number" id="editLatency" min="0" placeholder="47">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="saveBtn" onclick="saveData()">
+                        Guardar Cambios
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadCurrentData()">
+                        Recargar Datos
+                    </button>
+                </div>
+
+                <div id="statusMessage"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK para Firestore -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, doc, onSnapshot, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+            authDomain: "halcon-space-348e7.firebaseapp.com",
+            projectId: "halcon-space-348e7",
+            storageBucket: "halcon-space-348e7.firebasestorage.app",
+            messagingSenderId: "741724706453",
+            appId: "1:741724706453:web:519531e63f2b923f952d9c",
+            measurementId: "G-VG1Y2YMY4W"
+        };
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Referencia al documento de Firestore
+        const docRef = doc(db, 'kalypso', 'realtime');
+
+        let currentData = {};
+
+        // Escuchar cambios en tiempo real con onSnapshot
+        onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                currentData = data;
+                updateDisplayUI(data);
+                updateEditorUI(data);
+                updateConnectionStatus(true);
+            } else {
+                showError('No se encontró el documento "realtime" en la colección "kalypso"');
+                updateConnectionStatus(false);
+            }
+        }, (error) => {
+            console.error('Error al conectar con Firestore:', error);
+            showError('Error al conectar: ' + error.message);
+            updateConnectionStatus(false);
+        });
+
+        // Actualizar UI de visualización
+        function updateDisplayUI(data) {
+            document.getElementById('displayLaunched').textContent = data.satellitesLaunched || 0;
+            document.getElementById('displayOrbit').textContent = data.satellitesOrbit || 0;
+            document.getElementById('displayOperational').textContent = data.satellitesOperational || 0;
+            document.getElementById('displayPlanes').textContent = data.orbitalPlanes || 0;
+            document.getElementById('displayLatency').textContent = data.latency ? `${data.latency}ms` : '-';
+            
+            if (data.lastUpdate) {
+                const date = new Date(data.lastUpdate);
+                document.getElementById('displayLastUpdate').textContent = formatDate(date);
+            }
+        }
+
+        // Actualizar UI de editor
+        function updateEditorUI(data) {
+            document.getElementById('editLaunched').value = data.satellitesLaunched || 0;
+            document.getElementById('editOrbit').value = data.satellitesOrbit || 0;
+            document.getElementById('editOperational').value = data.satellitesOperational || 0;
+            document.getElementById('editPlanes').value = data.orbitalPlanes || 0;
+            document.getElementById('editLatency').value = data.latency || 0;
+        }
+
+        // Guardar datos en Firestore
+        window.saveData = async function() {
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Guardando...';
+
+            const newData = {
+                satellitesLaunched: parseInt(document.getElementById('editLaunched').value) || 0,
+                satellitesOrbit: parseInt(document.getElementById('editOrbit').value) || 0,
+                satellitesOperational: parseInt(document.getElementById('editOperational').value) || 0,
+                orbitalPlanes: parseInt(document.getElementById('editPlanes').value) || 0,
+                latency: parseInt(document.getElementById('editLatency').value) || 0,
+                lastUpdate: new Date().toISOString()
+            };
+
+            try {
+                await setDoc(docRef, newData);
+                showSuccess('¡Datos actualizados correctamente!');
+            } catch (error) {
+                console.error('Error al guardar:', error);
+                showError('Error al guardar: ' + error.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Guardar Cambios';
+            }
+        };
+
+        // Recargar datos actuales
+        window.loadCurrentData = function() {
+            updateEditorUI(currentData);
+            showSuccess('Datos recargados desde Firestore');
+        };
+
+        function formatDate(date) {
+            const day = date.getUTCDate().toString().padStart(2, '0');
+            const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            const month = months[date.getUTCMonth()];
+            const year = date.getUTCFullYear();
+            const hours = date.getUTCHours().toString().padStart(2, '0');
+            const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+            const seconds = date.getUTCSeconds().toString().padStart(2, '0');
+            
+            return `${hours}:${minutes}:${seconds} UTC • ${day} ${month} ${year}`;
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusDot = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('connectionText');
+            
+            if (connected) {
+                statusDot.classList.remove('disconnected');
+                statusText.textContent = 'Conectado';
+            } else {
+                statusDot.classList.add('disconnected');
+                statusText.textContent = 'Desconectado';
+            }
+        }
+
+        function showError(message) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.innerHTML = `<div class="message error-message">${message}</div>`;
+            setTimeout(() => statusDiv.innerHTML = '', 5000);
+        }
+
+        function showSuccess(message) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.innerHTML = `<div class="message success-message">${message}</div>`;
+            setTimeout(() => statusDiv.innerHTML = '', 3000);
+        }
+    </script>
+</body>
+</html>
