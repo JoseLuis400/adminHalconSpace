@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Telemetry Overlay - Aviso Cliente GO/NO GO</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    canvas {
+      position: fixed;
+      bottom: -50px;
+      right: -110px;
+    }
+
+    .fondoDatos {
+      width: 720px;
+      height: 320px;
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      background: linear-gradient(to bottom left, rgba(30, 30, 35, 0.88) 0%, rgba(47, 54, 64, 0) 100%);
+      clip-path: polygon(38% 0, 100% 0, 100% 100%, 0 100%);
+      padding: 60px 120px 60px 240px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 22px;
+
+      opacity: 0;
+      transform: translateX(100%);
+      transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+      pointer-events: none;
+    }
+
+    .fondoDatos.visible {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: all;
+    }
+
+    h3 {
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1.8rem;
+  text-transform: uppercase;
+  position: fixed;
+  top: 0px;
+  width: 400px;
+  text-align: center;
+  right: 0px;
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+p {
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1.5rem;
+  padding-left: 10px;
+  padding-right: 10px;
+  position: fixed;
+  top: 50px;
+  width: 410px;
+  text-align: start;
+  left: 250px;
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+  </style>
+</head>
+<body>
+  <div id="aviso" class="fondoDatos">
+    <h3 id="avisoTitle">CENTRO DE CONTROL</h3>
+    <p id="avisoMessage"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+      authDomain: "halcon-space-348e7.firebaseapp.com",
+      projectId: "halcon-space-348e7",
+      storageBucket: "halcon-space-348e7.firebasestorage.app",
+      messagingSenderId: "741724706453",
+      appId: "1:741724706453:web:519531e63f2b923f952d9c",
+      measurementId: "G-VG1Y2YMY4W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const avisoEl = document.getElementById('aviso');
+    const avisoTitleEl = document.getElementById('avisoTitle');
+    const avisoMessageEl = document.getElementById('avisoMessage');
+
+    let currentCliente = null;
+    let initialized = false;
+    let hideTimeout = null;
+
+    const docRef = doc(db, "telemetria", "ControlCenter");
+
+    onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const nuevoCliente = data.cliente;
+
+        if (typeof nuevoCliente !== "boolean") return;
+
+        // Primera lectura → solo guardamos, no mostramos
+        if (!initialized) {
+          currentCliente = nuevoCliente;
+          initialized = true;
+          return;
+        }
+
+        // Si cambió → activamos el aviso
+        if (nuevoCliente !== currentCliente) {
+          currentCliente = nuevoCliente;
+
+          if (hideTimeout) clearTimeout(hideTimeout);
+
+          avisoTitleEl.textContent = "CENTRO DE CONTROL";
+
+          if (nuevoCliente === true) {
+            avisoMessageEl.innerHTML = '<span>El cliente ha confirmado <span style="color: green">su aprobación</span> para proceder con el lanzamiento. Todas las operaciones pueden continuar según lo planificado.</span>';
+          } else {
+            avisoMessageEl.innerHTML = '<span>El cliente ha decidido <span style="color: red">no autorizar</span> el lanzamiento por el momento. Las operaciones deberán detenerse hasta recibir nuevas instrucciones.</span>';
+          }
+
+          avisoEl.classList.add('visible');
+
+          hideTimeout = setTimeout(() => {
+            avisoEl.classList.remove('visible');
+          }, 10000);
+        }
+      }
+    }, (error) => {
+      console.error("Error Firebase:", error);
+    });
+  </script>
+</body>
+</html>
