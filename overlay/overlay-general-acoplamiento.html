@@ -91,7 +91,7 @@
       font-size: 38px;
       font-weight: bold;
       white-space: nowrap;
-      min-width: 270px;
+      min-width: 320px; /* Aumentado un poco para que quepa "XD / " */
       text-align: center;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -100,7 +100,10 @@
       justify-content: center;
     }
 
-    .timer-count-digit { display: inline-block; transition: transform 0.3s ease, opacity 0.3s ease; }
+    .timer-count-digit { 
+      display: inline-block; 
+      transition: transform 0.3s ease, opacity 0.3s ease; 
+    }
   </style>
 </head>
 <body>
@@ -159,13 +162,11 @@ onSnapshot(docTelemetry, (snap) => {
   const velocidadKMHReal = datos.objetivo.velocidad_relativa ?? 0;
   const altitudKMReal = (datos.distancia ?? 0) / 1000;
 
-  // Inicialización en la primera lectura
   if (velocidadSuavizada === 0 && altitudSuavizada === 0) {
     velocidadSuavizada = velocidadKMHReal;
     altitudSuavizada = altitudKMReal;
   }
 
-  // Suavizado
   velocidadSuavizada += (velocidadKMHReal - velocidadSuavizada) * 0.1;
   altitudSuavizada += (altitudKMReal - altitudSuavizada) * 0.1;
 
@@ -176,22 +177,36 @@ onSnapshot(docTelemetry, (snap) => {
 
 // --- T+ y Nombre de misión ---
 const params = new URLSearchParams(window.location.search);
-const lanzamientoId = params.get("id") ?? "demo"; // usar demo si no se pasa id
+const lanzamientoId = params.get("id") ?? "demo";
 
-let objetivoUTC = new Date(Date.now() - 4800*1000); // T+ inicial de ejemplo 1h20m atrás
+let objetivoUTC = new Date(Date.now() - 4800*1000); // T+ inicial de ejemplo
 let estado = "normal";
 let holdUTC = null;
 let intervalId = null;
 
-// Nombre de misión por defecto
 document.getElementById("missionName-element").textContent = "Eagle Coming 15";
 
+/* NUEVA FUNCIÓN DE FORMATEO CON DÍAS */
 function formatearTiempo(diffSegundos) {
   const esPositivo = diffSegundos >= 0;
-  const horas = Math.floor(Math.abs(diffSegundos) / 3600);
-  const minutos = Math.floor((Math.abs(diffSegundos) % 3600) / 60);
-  const segundos = Math.floor(Math.abs(diffSegundos) % 60);
-  return `${esPositivo ? "T+" : "T-"} ${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+  const absSegundos = Math.abs(diffSegundos);
+
+  const dias = Math.floor(absSegundos / 86400); // 86400 segundos = 1 día
+  const segundosRestantes = absSegundos % 86400;
+
+  const horas = Math.floor(segundosRestantes / 3600);
+  const minutos = Math.floor((segundosRestantes % 3600) / 60);
+  const segundos = Math.floor(segundosRestantes % 60);
+
+  let texto = "T" + (esPositivo ? "+" : "-") + " ";
+
+  if (dias > 0) {
+    texto += `${dias}D / ${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+  } else {
+    texto += `${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+  }
+
+  return texto;
 }
 
 function actualizarTimer() {
@@ -240,11 +255,10 @@ onSnapshot(refDocLanz, (snap) => {
 
   const data = snap.data();
 
-  // Actualizar nombre de misión
   if (data.nombre) document.getElementById("missionName-element").textContent = data.nombre;
 
   estado = data.estado ?? "normal";
-  objetivoUTC = data.utcTime ? new Date(data.utcTime) : objetivoUTC; // usar demo si falta
+  objetivoUTC = data.utcTime ? new Date(data.utcTime) : objetivoUTC;
   holdUTC = data.holdTime ? new Date(data.holdTime) : null;
 
   if (intervalId) clearInterval(intervalId);
