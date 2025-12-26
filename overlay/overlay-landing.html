@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Overlay KSP - Aterrizaje</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: transparent;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .overlay {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 50px;
+      width: 1100px;
+      height: 90px;
+      display: flex;
+      justify-content: space-between;
+      padding: 15px 60px;
+      background: rgba(0, 0, 0, 0.7);
+      clip-path: polygon(10% 0, 90% 0, 100% 100%, 0 100%);
+      border-radius: 15px;
+      z-index: 1;
+      overflow: visible;
+    }
+
+    .tiempoDIV {
+      clip-path: polygon(25% -20%, 80% 0, 100% 100%, 0 100%);
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px 60px;
+      margin: -20px;
+      width: 250px;
+      position: relative;
+      overflow: visible;
+    }
+
+    .tiempoDIV .elementos {
+      position: relative;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      line-height: 60px;
+    }
+
+    .data-box { text-align: center; }
+    .data-box span { display: block; }
+    .data-box small { font-size: 15px; color: #ccc; }
+    .data-item { padding: 0 20px; }
+    #speed-element, #altitude-element, #hspeed-element, #velocity-element { font-size: 30px; font-weight: bold; }
+    #unidad { font-size: 18px; color: #ccc; }
+
+    .missionName-widget {
+      width: 220px;
+      height: auto;
+      position: fixed;
+      bottom: 35px;
+      left: 870px;
+      z-index: 4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 5px 0;
+      box-sizing: border-box;
+      text-align: center;
+      color: #ccc;
+    }
+
+    .fondoMissionName {
+      clip-path: polygon(0 0, 100% 0, 100% 0%, 90% 100%, 10% 100%, 10% 100%);
+      background: rgba(0, 0, 0, 0.9);
+      position: fixed;
+      bottom: 30px;
+      left: 850px;
+      width: 250px;
+      height: 20px;
+    }
+
+    .timer.countdown {
+      font-size: 32px;
+      font-weight: bold;
+      white-space: nowrap;
+      min-width: 320px;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .timer-count-digit { 
+      display: inline-block; 
+      transition: transform 0.3s ease, opacity 0.3s ease; 
+    }
+
+    /* Colores dinámicos según velocidad vertical */
+    .vspeed-safe { color: #0f0; }
+    .vspeed-warning { color: #ff0; }
+    .vspeed-danger { color: #f00; }
+    
+    /* Colores dinámicos según velocidad horizontal */
+    .hspeed-safe { color: #0f0; }
+    .hspeed-warning { color: #ff0; }
+    .hspeed-danger { color: #f00; }
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <div class="data-box data-item" style="padding-left: 50px;">
+      <span id="spanTipe">VELOCIDAD VERTICAL</span>
+      <span id="speed-element" class="vspeed-safe">----</span>
+      <small id="unidad">M/S</small>
+    </div>
+    <div class="data-box data-item">
+      <span id="spanTipe">VELOCIDAD HORIZONTAL</span>
+      <span id="hspeed-element" class="hspeed-safe">----</span>
+      <small id="unidad">M/S</small>
+    </div>
+    <div class="data-box tiempoDIV">
+      <div class="elementos">
+        <span class="timer countdown" id="timer-element">T+00:00:00</span>
+      </div>
+      <div class="statusMission" id="status"></div>
+    </div>
+    <div class="data-box data-item">
+      <span id="spanTipe">ALTITUD TERRENO</span>
+      <span id="altitude-element">----</span>
+      <small id="unidad">M</small>
+    </div>
+    <div class="data-box data-item" style="padding-right: 50px;">
+      <span id="spanTipe">VELOCIDAD TOTAL</span>
+      <span id="velocity-element">----</span>
+      <small id="unidad">KM/H</small>
+    </div>
+  </div>
+
+  <div class="missionName-widget">
+    <small id="missionName-element">Landing Attempt 1</small>
+  </div>
+  <div class="fondoMissionName"></div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+// Config Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+  authDomain: "halcon-space-348e7.firebaseapp.com",
+  projectId: "halcon-space-348e7",
+  storageBucket: "halcon-space-348e7.firebasestorage.app",
+  messagingSenderId: "741724706453",
+  appId: "1:741724706453:web:519531e63f2b923f952d9c",
+  measurementId: "G-VG1Y2YMY4W"
+};
+
+// Inicializar Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// --- Telemetría de aterrizaje ---
+const docTelemetry = doc(db, "telemetria", "estado_actual");
+let velocidadVerticalSuavizada = 0;
+let altitudSuavizada = 0;
+let velocidadHorizontalSuavizada = 0;
+let velocidadTotalSuavizada = 0;
+
+function actualizarColorVelocidadHorizontal(velocidad) {
+  const elem = document.getElementById("hspeed-element");
+  elem.classList.remove('hspeed-safe', 'hspeed-warning', 'hspeed-danger');
+  
+  const absVel = Math.abs(velocidad);
+  if (absVel < 5) {
+    elem.classList.add('hspeed-safe');
+  } else if (absVel < 15) {
+    elem.classList.add('hspeed-warning');
+  } else {
+    elem.classList.add('hspeed-danger');
+  }
+}
+
+function actualizarColorVelocidad(velocidad) {
+  const elem = document.getElementById("speed-element");
+  elem.classList.remove('vspeed-safe', 'vspeed-warning', 'vspeed-danger');
+  
+  const absVel = Math.abs(velocidad);
+  if (absVel < 5) {
+    elem.classList.add('vspeed-safe');
+  } else if (absVel < 15) {
+    elem.classList.add('vspeed-warning');
+  } else {
+    elem.classList.add('vspeed-danger');
+  }
+}
+
+onSnapshot(docTelemetry, (snap) => {
+  if (!snap.exists()) {
+    console.log("No existe el documento");
+    return;
+  }
+  const datos = snap.data();
+  console.log("Datos recibidos:", datos);
+  
+  // Datos de aterrizaje desde Firebase
+  const velocidadVerticalReal = datos.velocidad_vertical ?? 0;
+  const altitudReal = datos.altitud_terreno ?? 0;
+  const velocidadHorizontalReal = (datos.velocidad_horizontal_kmh ?? 0) / 3.6; // Convertir km/h a m/s
+  const velocidadTotalReal = datos.velocity_kmh ?? 0;
+
+  console.log("Vel Horizontal:", velocidadHorizontalReal, "Vel Total:", velocidadTotalReal);
+
+  // Inicialización
+  if (velocidadVerticalSuavizada === 0 && altitudSuavizada === 0 && 
+      velocidadHorizontalSuavizada === 0 && velocidadTotalSuavizada === 0) {
+    velocidadVerticalSuavizada = velocidadVerticalReal;
+    altitudSuavizada = altitudReal;
+    velocidadHorizontalSuavizada = velocidadHorizontalReal;
+    velocidadTotalSuavizada = velocidadTotalReal;
+  }
+
+  // Suavizado
+  velocidadVerticalSuavizada += (velocidadVerticalReal - velocidadVerticalSuavizada) * 0.1;
+  altitudSuavizada += (altitudReal - altitudSuavizada) * 0.1;
+  velocidadHorizontalSuavizada += (velocidadHorizontalReal - velocidadHorizontalSuavizada) * 0.1;
+  velocidadTotalSuavizada += (velocidadTotalReal - velocidadTotalSuavizada) * 0.1;
+
+  // Actualizar elementos
+  const speedElem = document.getElementById("speed-element");
+  const altElem = document.getElementById("altitude-element");
+  const hspeedElem = document.getElementById("hspeed-element");
+  const velElem = document.getElementById("velocity-element");
+
+  if (speedElem) speedElem.textContent = velocidadVerticalSuavizada.toFixed(1);
+  if (altElem) altElem.textContent = altitudSuavizada.toFixed(0);
+  if (hspeedElem) hspeedElem.textContent = velocidadHorizontalSuavizada.toFixed(1);
+  if (velElem) velElem.textContent = velocidadTotalSuavizada.toFixed(0);
+  
+  actualizarColorVelocidad(velocidadVerticalSuavizada);
+  actualizarColorVelocidadHorizontal(velocidadHorizontalSuavizada);
+});
+
+// --- T+ y Nombre de misión ---
+const params = new URLSearchParams(window.location.search);
+const lanzamientoId = params.get("id") ?? "demo";
+
+let objetivoUTC = new Date(Date.now() - 120*1000); // T+ inicial de ejemplo
+let estado = "normal";
+let holdUTC = null;
+let intervalId = null;
+
+document.getElementById("missionName-element").textContent = "Landing Attempt 1";
+
+function formatearTiempo(diffSegundos) {
+  const esPositivo = diffSegundos >= 0;
+  const absSegundos = Math.abs(diffSegundos);
+
+  const dias = Math.floor(absSegundos / 86400);
+  const segundosRestantes = absSegundos % 86400;
+
+  const horas = Math.floor(segundosRestantes / 3600);
+  const minutos = Math.floor((segundosRestantes % 3600) / 60);
+  const segundos = Math.floor(segundosRestantes % 60);
+
+  let texto = "T" + (esPositivo ? "+" : "-") + " ";
+
+  if (dias > 0) {
+    texto += `${dias}D / ${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+  } else {
+    texto += `${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+  }
+
+  return texto;
+}
+
+function actualizarTimer() {
+  if (!objetivoUTC) return;
+  let diffSegundos;
+
+  if ((estado === "hold" || estado === "scrub") && holdUTC) {
+    diffSegundos = Math.floor((holdUTC.getTime() - objetivoUTC.getTime()) / 1000);
+    document.getElementById('status').textContent = estado;
+  } else {
+    diffSegundos = Math.floor((Date.now() - objetivoUTC.getTime()) / 1000);
+    document.getElementById('status').textContent = "";
+  }
+
+  actualizarTimerAnimado(diffSegundos);
+}
+
+function actualizarTimerAnimado(diffSegundos) {
+  const formatted = formatearTiempo(diffSegundos);
+  const timerElem = document.getElementById("timer-element");
+  const oldText = timerElem.textContent;
+  timerElem.innerHTML = '';
+
+  for (let i = 0; i < formatted.length; i++) {
+    const span = document.createElement('span');
+    span.className = 'timer-count-digit';
+    span.textContent = formatted[i];
+
+    if (oldText[i] !== formatted[i]) {
+      span.style.opacity = 0;
+      span.style.transform = 'translateY(-20px)';
+      setTimeout(() => {
+        span.style.opacity = 1;
+        span.style.transform = 'translateY(0)';
+      }, 20);
+    }
+
+    timerElem.appendChild(span);
+  }
+}
+
+// Referencia a lanzamiento
+const refDocLanz = doc(db, "lanzamientos", lanzamientoId);
+onSnapshot(refDocLanz, (snap) => {
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+
+  if (data.nombre) document.getElementById("missionName-element").textContent = data.nombre;
+
+  estado = data.estado ?? "normal";
+  objetivoUTC = data.utcTime ? new Date(data.utcTime) : objetivoUTC;
+  holdUTC = data.holdTime ? new Date(data.holdTime) : null;
+
+  if (intervalId) clearInterval(intervalId);
+  actualizarTimer();
+  intervalId = setInterval(actualizarTimer, 1000);
+});
+
+  </script>
+</body>
+</html>
