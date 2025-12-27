@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Halcon Space - Esperando Conexión</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            position: relative;
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Estrellas de fondo */
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* Logo */
+        .logo-container {
+            animation: breathe 3s ease-in-out infinite;
+            margin-bottom: 40px;
+            z-index: 10;
+        }
+
+        .logo {
+            width: 280px;
+            height: auto;
+            filter: drop-shadow(0 0 20px rgba(100, 200, 255, 0.5));
+        }
+
+        @keyframes breathe {
+            0%, 100% { opacity: 0.7; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+
+        /* Texto principal */
+        .message {
+            color: #ffffff;
+            font-size: 32px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 30px;
+            animation: pulse 2s ease-in-out infinite;
+            z-index: 10;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* Estado de conexión */
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #64b5f6;
+            font-size: 18px;
+            font-weight: 400;
+            z-index: 10;
+        }
+
+        /* Spinner de carga */
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(100, 181, 246, 0.3);
+            border-top: 3px solid #64b5f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Indicador de señal */
+        .signal-indicator {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .signal-bars {
+            display: flex;
+            gap: 4px;
+            align-items: flex-end;
+        }
+
+        .bar {
+            width: 6px;
+            background: #ff5252;
+            border-radius: 2px;
+            animation: fade 1.5s ease-in-out infinite;
+        }
+
+        .bar:nth-child(1) { height: 8px; animation-delay: 0s; }
+        .bar:nth-child(2) { height: 14px; animation-delay: 0.2s; }
+        .bar:nth-child(3) { height: 20px; animation-delay: 0.4s; }
+
+        @keyframes fade {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .signal-text {
+            color: #ff5252;
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Efectos de partículas flotantes */
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(100, 181, 246, 0.6);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-100px) translateX(50px); opacity: 0; }
+        }
+
+        /* Branding footer */
+        .footer {
+            position: absolute;
+            bottom: 30px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 14px;
+            letter-spacing: 3px;
+            font-weight: 300;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Estrellas de fondo -->
+        <div class="stars" id="stars"></div>
+
+        <!-- Indicador de señal -->
+        <div class="signal-indicator">
+            <div class="signal-bars">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+            <span class="signal-text">Sin Señal</span>
+        </div>
+
+        <!-- Logo -->
+        <div class="logo-container">
+            <img src="https://halconspace.site/img/logo.png" alt="Halcon Space Logo" class="logo">
+        </div>
+
+        <!-- Mensaje -->
+        <div class="message">Esperando conexión...</div>
+
+        <!-- Estado -->
+        <div class="status">
+            <div class="spinner"></div>
+            <span>Reconectando cámara</span>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">HALCON SPACE</div>
+    </div>
+
+    <script>
+        // Generar estrellas aleatorias
+        const starsContainer = document.getElementById('stars');
+        for (let i = 0; i < 100; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.width = Math.random() * 3 + 'px';
+            star.style.height = star.style.width;
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            star.style.animationDelay = Math.random() * 3 + 's';
+            starsContainer.appendChild(star);
+        }
+
+        // Generar partículas flotantes
+        const container = document.querySelector('.container');
+        for (let i = 0; i < 15; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.bottom = '0';
+            particle.style.animationDelay = Math.random() * 6 + 's';
+            particle.style.animationDuration = (Math.random() * 4 + 4) + 's';
+            container.appendChild(particle);
+        }
+    </script>
+</body>
+</html>
