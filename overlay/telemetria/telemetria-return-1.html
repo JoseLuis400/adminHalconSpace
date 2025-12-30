@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Telemetry Overlay (Firebase)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: orangered;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+    canvas {
+      position: fixed;
+      bottom: -50px;
+      left: 0;
+    }
+    .fondoDatos {
+      width: 600px;
+      height: 250px;
+      position: fixed;
+      bottom: 0;
+      border-radius: 0px;
+      background: linear-gradient(to bottom right, rgba(50, 50, 50, 0.7) 0%, rgba(47, 54, 64, 0) 100%);
+      clip-path: polygon(0 0, 60% 0, 100% 100%, 0 100%);
+    }
+    h3 {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      text-transform: uppercase;
+      position: fixed;
+      bottom: -10px;
+      width: 500px;
+      text-align: center;
+      left: 0px;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <h3 id="stageActual">Cargando...</h3>
+  <div class="fondoDatos"></div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    // --- Configuración de Firebase ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+      authDomain: "halcon-space-348e7.firebaseapp.com",
+      projectId: "halcon-space-348e7",
+      storageBucket: "halcon-space-348e7.firebasestorage.app",
+      messagingSenderId: "741724706453",
+      appId: "1:741724706453:web:519531e63f2b923f952d9c",
+      measurementId: "G-VG1Y2YMY4W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- Variables ---
+    let altitud = 0;         // en metros
+    let velocidad = 0;       // en km/h
+    let altitudMax = 100;    // en km
+    let velocidadMax = 5000; // en km/h
+    let etapaActual = "ETAPA DESCONOCIDA";
+
+    let altitudVisual = 0;
+    let velocidadVisual = 0;
+    let datosCargados = false;
+
+    // --- Escuchar telemetría ---
+    const docTelemetry = doc(db, "telemetria", "estado_actual");
+    onSnapshot(docTelemetry, (snap) => {
+      if (!snap.exists()) {
+        console.log("No existe el documento de telemetría");
+        return;
+      }
+      const datos = snap.data();
+      console.log("Datos recibidos:", datos);
+
+      // Tomar altitud_terreno y velocity_kmh desde Firebase
+      altitud = datos.altitud_terreno ?? 0;  // Altitud en metros
+      velocidad = datos.velocity_kmh ?? 0;    // Velocidad total en km/h
+      
+      datosCargados = true;
+    });
+
+    // --- Escuchar configuración ---
+    const docConfig = doc(db, "telemetria", "config");
+    onSnapshot(docConfig, (snap) => {
+      if (!snap.exists()) return;
+      const config = snap.data();
+
+      altitudMax = config.altitudeMax ?? altitudMax;
+      velocidadMax = config.velocidadMax ?? velocidadMax;
+      etapaActual = config.etapa ?? "ETAPA DESCONOCIDA";
+
+      document.getElementById("stageActual").textContent = "Telemetría " + etapaActual;
+    });
+
+    // --- Dibujo p5.js ---
+    window.setup = function() {
+      createCanvas(600, 300);
+      pixelDensity(2);
+    }
+
+    window.draw = function() {
+      clear();
+
+      if (!datosCargados) {
+        fill(255);
+        textAlign(CENTER, CENTER);
+        textSize(20);
+        text("Cargando datos...", width / 2, height / 2);
+        return;
+      }
+
+      // Suavizado
+      altitudVisual = lerp(altitudVisual, altitud, 0.1);
+      velocidadVisual = lerp(velocidadVisual, velocidad, 0.1);
+
+      // Convertir y preparar valores
+      let altitudKm = Math.max(altitudVisual / 1000, 0.1);
+      let altitudDisplay = altitudVisual < 1000 ? altitudVisual : altitudKm;
+      let altitudUnidad = altitudVisual < 1000 ? "m" : "km";
+      let velocidadKmh = velocidadVisual;
+
+      drawDynamicTelemetryArc(150, 140, 80, "ALTITUD", altitudKm, altitudMax, altitudUnidad, altitudDisplay);
+      drawDynamicTelemetryArc(350, 140, 80, "VELOCIDAD", velocidadKmh, velocidadMax, "km/h");
+    }
+
+    // --- Función para dibujar los arcos dinámicos ---
+    function drawDynamicTelemetryArc(x, y, radius, label, value, maxValue, unit = "", displayValue = null) {
+      let porcentaje = constrain(value / maxValue, 0, 1);
+      let startAngle = 3 * PI / 4;
+      let fullAngle = TWO_PI - startAngle;
+      let endAngle = startAngle + fullAngle * porcentaje;
+
+      noFill();
+      strokeWeight(5);
+
+      // Arco de fondo
+      stroke(255, 255, 255, 100);
+      arc(x, y, radius * 2, radius * 2, startAngle, startAngle + fullAngle);
+
+      // Arco de progreso
+      stroke(255, 255, 255, 200);
+      arc(x, y, radius * 2, radius * 2, startAngle, endAngle);
+
+      // Círculo decorativo
+      stroke(255, 255, 255, 100);
+      strokeWeight(1);
+      circle(x, y, radius * 1.8);
+
+      // Texto
+      textAlign(CENTER, CENTER);
+      fill(255);
+      noStroke();
+      textSize(15);
+      textStyle(BOLD);
+      text(label, x, y - radius / 2);
+
+      if (displayValue === null) displayValue = value;
+      let valor = displayValue <= 100 ? displayValue.toFixed(1) : displayValue.toFixed(0);
+
+      textSize(30);
+      text(valor, x, y);
+      textSize(15);
+      text(unit, x, y + 30);
+    }
+  </script>
+</body>
+</html>
