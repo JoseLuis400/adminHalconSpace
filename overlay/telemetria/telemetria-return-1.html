@@ -83,7 +83,7 @@
       console.log("Datos recibidos:", datos);
 
       // Tomar altitud_terreno y velocity_kmh desde Firebase
-      altitud = datos.altitud_terreno ?? 0;  // Altitud en metros
+      altitud = datos.altitud_terreno ?? datos.altura_m ?? 0;  // Altitud en metros
       velocidad = datos.velocity_kmh ?? 0;    // Velocidad total en km/h
       
       datosCargados = true;
