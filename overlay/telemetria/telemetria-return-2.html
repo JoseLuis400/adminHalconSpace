@@ -65,8 +65,8 @@
     // --- Variables ---
     let velocidadVertical = 0;    // en m/s
     let velocidadHorizontal = 0;  // en m/s
-    let velocidadVerticalMax = 50;    // en m/s
-    let velocidadHorizontalMax = 50;  // en m/s
+    let velocidadVerticalMax = 5;    // en m/s
+    let velocidadHorizontalMax = 5;  // en m/s
     let etapaActual = "ETAPA DESCONOCIDA";
 
     let velocidadVerticalVisual = 0;
@@ -124,8 +124,8 @@
       velocidadVerticalVisual = lerp(velocidadVerticalVisual, velocidadVertical, 0.1);
       velocidadHorizontalVisual = lerp(velocidadHorizontalVisual, velocidadHorizontal, 0.1);
 
-      drawDynamicTelemetryArc(150, 140, 80, "VELOCIDAD VERTICAL", velocidadVerticalVisual, velocidadVerticalMax, "m/s");
-      drawDynamicTelemetryArc(450, 140, 80, "VELOCIDAD HORIZONTAL", velocidadHorizontalVisual, velocidadHorizontalMax, "m/s");
+      drawDynamicTelemetryArc(250, 140, 80, "V. VERTICAL", velocidadVerticalVisual, velocidadVerticalMax, "m/s");
+      drawDynamicTelemetryArc(450, 140, 80, "V. HORIZONTAL", velocidadHorizontalVisual, velocidadHorizontalMax, "m/s");
     }
 
     // --- Función para dibujar los arcos dinámicos ---
@@ -142,9 +142,8 @@
       stroke(255, 255, 255, 100);
       arc(x, y, radius * 2, radius * 2, startAngle, startAngle + fullAngle);
 
-      // Arco de progreso con color según velocidad
-      let arcColor = getColorForSpeed(value, maxValue);
-      stroke(arcColor[0], arcColor[1], arcColor[2], 200);
+      // Arco de progreso
+      stroke(255, 255, 255, 200);
       arc(x, y, radius * 2, radius * 2, startAngle, endAngle);
 
       // Círculo decorativo
@@ -167,19 +166,6 @@
       text(valor, x, y);
       textSize(15);
       text(unit, x, y + 30);
-    }
-
-    // --- Función para obtener color según velocidad ---
-    function getColorForSpeed(value, maxValue) {
-      let absValue = Math.abs(value);
-      
-      if (absValue < 5) {
-        return [0, 255, 0]; // Verde - seguro
-      } else if (absValue < 15) {
-        return [255, 255, 0]; // Amarillo - advertencia
-      } else {
-        return [255, 0, 0]; // Rojo - peligro
-      }
     }
   </script>
 </body>

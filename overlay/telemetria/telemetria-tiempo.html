@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>T+ Misión</title>
+<style>
+  body {
+    margin: 0;
+    background: transparent;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background-color: orange;
+  }
+  canvas {
+    position: fixed;
+    bottom: -50px;
+    left: 0;
+  }
+  .fondoDatos {
+    width: 1200px;
+    height: 300px;
+    background: radial-gradient(
+    ellipse 140% 100% at 50% 0%,
+    rgba(0, 0, 0, 0.85) 0%,
+    rgba(0, 0, 0, 0.3) 55%,
+    rgba(0, 0, 0, 0) 100%
+);
+
+    position: fixed;
+    bottom: -120px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    color: white;
+    font-family: Arial, sans-serif;
+    font-size: 1.8rem;
+    padding-bottom: 80px;
+  }
+  #tplus {
+    font-size: 48px;
+    font-weight: bold;
+    color: white;
+    user-select: none;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+    letter-spacing: 3px;
+  }
+  .missionName {
+    color: #ccc;
+    text-align: center;
+    margin: 0 auto;
+    margin-top: 10px;
+    font-size: 18px;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .timer-count-digit { 
+    display: inline-block; 
+    transition: transform 0.3s ease, opacity 0.3s ease; 
+  }
+</style>
+</head>
+<body>
+  <div class="fondoDatos">
+    <div id="tplus" class="countdown">T+00:00:00</div>
+    <div class="missionName" id="missionName">Cargando...</div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    // --- Configuración de Firebase ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+      authDomain: "halcon-space-348e7.firebaseapp.com",
+      projectId: "halcon-space-348e7",
+      storageBucket: "halcon-space-348e7.firebasestorage.app",
+      messagingSenderId: "741724706453",
+      appId: "1:741724706453:web:519531e63f2b923f952d9c",
+      measurementId: "G-VG1Y2YMY4W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- Variables del timer ---
+    const params = new URLSearchParams(window.location.search);
+    const lanzamientoId = params.get("id") ?? "demo";
+
+    let objetivoUTC = new Date(Date.now() - 120*1000); // T+ inicial de ejemplo
+    let estado = "normal";
+    let holdUTC = null;
+    let intervalId = null;
+
+    // --- Función para formatear el tiempo ---
+    function formatearTiempo(diffSegundos) {
+      const esPositivo = diffSegundos >= 0;
+      const absSegundos = Math.abs(diffSegundos);
+
+      const dias = Math.floor(absSegundos / 86400);
+      const segundosRestantes = absSegundos % 86400;
+
+      const horas = Math.floor(segundosRestantes / 3600);
+      const minutos = Math.floor((segundosRestantes % 3600) / 60);
+      const segundos = Math.floor(segundosRestantes % 60);
+
+      let texto = "T" + (esPositivo ? "+" : "-");
+
+      if (dias > 0) {
+        texto += `${dias}D/${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+      } else {
+        texto += `${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+      }
+
+      return texto;
+    }
+
+    // --- Función para actualizar el timer con animación ---
+    function actualizarTimerAnimado(diffSegundos) {
+      const formatted = formatearTiempo(diffSegundos);
+      const timerElem = document.getElementById("tplus");
+      const oldText = timerElem.textContent;
+      timerElem.innerHTML = '';
+
+      for (let i = 0; i < formatted.length; i++) {
+        const span = document.createElement('span');
+        span.className = 'timer-count-digit';
+        span.textContent = formatted[i];
+
+        if (oldText[i] !== formatted[i]) {
+          span.style.opacity = 0;
+          span.style.transform = 'translateY(-20px)';
+          setTimeout(() => {
+            span.style.opacity = 1;
+            span.style.transform = 'translateY(0)';
+          }, 20);
+        }
+
+        timerElem.appendChild(span);
+      }
+    }
+
+    // --- Función para actualizar el timer ---
+    function actualizarTimer() {
+      if (!objetivoUTC) return;
+      let diffSegundos;
+
+      if ((estado === "hold" || estado === "scrub") && holdUTC) {
+        diffSegundos = Math.floor((holdUTC.getTime() - objetivoUTC.getTime()) / 1000);
+      } else {
+        diffSegundos = Math.floor((Date.now() - objetivoUTC.getTime()) / 1000);
+      }
+
+      actualizarTimerAnimado(diffSegundos);
+    }
+
+    // --- Escuchar documento de lanzamiento ---
+    const refDocLanz = doc(db, "lanzamientos", lanzamientoId);
+    onSnapshot(refDocLanz, (snap) => {
+      if (!snap.exists()) {
+        console.log("No existe el documento de lanzamiento");
+        return;
+      }
+
+      const data = snap.data();
+      console.log("Datos de lanzamiento recibidos:", data);
+
+      // Actualizar nombre de misión
+      if (data.nombre) {
+        document.getElementById("missionName").textContent = data.nombre;
+      }
+
+      // Actualizar estado y tiempos
+      estado = data.estado ?? "normal";
+      objetivoUTC = data.utcTime ? new Date(data.utcTime) : objetivoUTC;
+      holdUTC = data.holdTime ? new Date(data.holdTime) : null;
+
+      // Reiniciar intervalo
+      if (intervalId) clearInterval(intervalId);
+      actualizarTimer();
+      intervalId = setInterval(actualizarTimer, 1000);
+    });
+  </script>
+</body>
+</html>
