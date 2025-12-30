@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Telemetry Overlay - Velocidades</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: orangered;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+    canvas {
+      position: fixed;
+      bottom: -50px;
+      right: 0;
+    }
+    .fondoDatos {
+      width: 600px;
+      height: 250px;
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      border-radius: 0px;
+      background: linear-gradient(to bottom left, rgba(50, 50, 50, 0.7) 0%, rgba(47, 54, 64, 0) 100%);
+      clip-path: polygon(40% 0, 100% 0, 100% 100%, 0 100%);
+    }
+    h3 {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      text-transform: uppercase;
+      position: fixed;
+      bottom: -10px;
+      width: 500px;
+      text-align: center;
+      right: 0px;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <h3 id="stageActual">Cargando...</h3>
+  <div class="fondoDatos"></div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    // --- Configuración de Firebase ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+      authDomain: "halcon-space-348e7.firebaseapp.com",
+      projectId: "halcon-space-348e7",
+      storageBucket: "halcon-space-348e7.firebasestorage.app",
+      messagingSenderId: "741724706453",
+      appId: "1:741724706453:web:519531e63f2b923f952d9c",
+      measurementId: "G-VG1Y2YMY4W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- Variables ---
+    let velocidadVertical = 0;    // en m/s
+    let velocidadHorizontal = 0;  // en m/s
+    let velocidadVerticalMax = 50;    // en m/s
+    let velocidadHorizontalMax = 50;  // en m/s
+    let etapaActual = "ETAPA DESCONOCIDA";
+
+    let velocidadVerticalVisual = 0;
+    let velocidadHorizontalVisual = 0;
+    let datosCargados = false;
+
+    // --- Escuchar telemetría ---
+    const docTelemetry = doc(db, "telemetria", "estado_actual");
+    onSnapshot(docTelemetry, (snap) => {
+      if (!snap.exists()) {
+        console.log("No existe el documento de telemetría");
+        return;
+      }
+      const datos = snap.data();
+      console.log("Datos recibidos:", datos);
+
+      // Tomar velocidades desde Firebase
+      velocidadVertical = Math.abs(datos.velocidad_vertical ?? 0);  // Velocidad vertical en m/s (valor absoluto)
+      velocidadHorizontal = (datos.velocidad_horizontal_kmh ?? 0) / 3.6;  // Convertir km/h a m/s
+      
+      datosCargados = true;
+    });
+
+    // --- Escuchar configuración ---
+    const docConfig = doc(db, "telemetria", "config");
+    onSnapshot(docConfig, (snap) => {
+      if (!snap.exists()) return;
+      const config = snap.data();
+
+      velocidadVerticalMax = config.velocidadVerticalMax ?? velocidadVerticalMax;
+      velocidadHorizontalMax = config.velocidadHorizontalMax ?? velocidadHorizontalMax;
+      etapaActual = config.etapa ?? "ETAPA DESCONOCIDA";
+
+      document.getElementById("stageActual").textContent = "Telemetría " + etapaActual;
+    });
+
+    // --- Dibujo p5.js ---
+    window.setup = function() {
+      createCanvas(600, 300);
+      pixelDensity(2);
+    }
+
+    window.draw = function() {
+      clear();
+
+      if (!datosCargados) {
+        fill(255);
+        textAlign(CENTER, CENTER);
+        textSize(20);
+        text("Cargando datos...", width / 2, height / 2);
+        return;
+      }
+
+      // Suavizado
+      velocidadVerticalVisual = lerp(velocidadVerticalVisual, velocidadVertical, 0.1);
+      velocidadHorizontalVisual = lerp(velocidadHorizontalVisual, velocidadHorizontal, 0.1);
+
+      drawDynamicTelemetryArc(150, 140, 80, "VELOCIDAD VERTICAL", velocidadVerticalVisual, velocidadVerticalMax, "m/s");
+      drawDynamicTelemetryArc(450, 140, 80, "VELOCIDAD HORIZONTAL", velocidadHorizontalVisual, velocidadHorizontalMax, "m/s");
+    }
+
+    // --- Función para dibujar los arcos dinámicos ---
+    function drawDynamicTelemetryArc(x, y, radius, label, value, maxValue, unit = "", displayValue = null) {
+      let porcentaje = constrain(value / maxValue, 0, 1);
+      let startAngle = 3 * PI / 4;
+      let fullAngle = TWO_PI - startAngle;
+      let endAngle = startAngle + fullAngle * porcentaje;
+
+      noFill();
+      strokeWeight(5);
+
+      // Arco de fondo
+      stroke(255, 255, 255, 100);
+      arc(x, y, radius * 2, radius * 2, startAngle, startAngle + fullAngle);
+
+      // Arco de progreso con color según velocidad
+      let arcColor = getColorForSpeed(value, maxValue);
+      stroke(arcColor[0], arcColor[1], arcColor[2], 200);
+      arc(x, y, radius * 2, radius * 2, startAngle, endAngle);
+
+      // Círculo decorativo
+      stroke(255, 255, 255, 100);
+      strokeWeight(1);
+      circle(x, y, radius * 1.8);
+
+      // Texto
+      textAlign(CENTER, CENTER);
+      fill(255);
+      noStroke();
+      textSize(12);
+      textStyle(BOLD);
+      text(label, x, y - radius / 2);
+
+      if (displayValue === null) displayValue = value;
+      let valor = displayValue.toFixed(1);
+
+      textSize(30);
+      text(valor, x, y);
+      textSize(15);
+      text(unit, x, y + 30);
+    }
+
+    // --- Función para obtener color según velocidad ---
+    function getColorForSpeed(value, maxValue) {
+      let absValue = Math.abs(value);
+      
+      if (absValue < 5) {
+        return [0, 255, 0]; // Verde - seguro
+      } else if (absValue < 15) {
+        return [255, 255, 0]; // Amarillo - advertencia
+      } else {
+        return [255, 0, 0]; // Rojo - peligro
+      }
+    }
+  </script>
+</body>
+</html>
