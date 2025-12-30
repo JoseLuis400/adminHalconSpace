@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Telemetry Overlay - Órbita</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: orangered;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+    canvas {
+      position: fixed;
+      bottom: -50px;
+      right: 0;
+    }
+    .fondoDatos {
+      width: 600px;
+      height: 250px;
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      border-radius: 0px;
+      background: linear-gradient(to bottom left, rgba(50, 50, 50, 0.7) 0%, rgba(47, 54, 64, 0) 100%);
+      clip-path: polygon(40% 0, 100% 0, 100% 100%, 0 100%);
+    }
+    h3 {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      text-transform: uppercase;
+      position: fixed;
+      bottom: -10px;
+      width: 500px;
+      text-align: center;
+      right: 0px;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <h3 id="stageActual">Cargando...</h3>
+  <div class="fondoDatos"></div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    // --- Configuración de Firebase ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+      authDomain: "halcon-space-348e7.firebaseapp.com",
+      projectId: "halcon-space-348e7",
+      storageBucket: "halcon-space-348e7.firebasestorage.app",
+      messagingSenderId: "741724706453",
+      appId: "1:741724706453:web:519531e63f2b923f952d9c",
+      measurementId: "G-VG1Y2YMY4W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- Variables ---
+    let perigeo = 0;    // en km
+    let apogeo = 0;     // en km
+    let perigeoMax = 500;    // en km (límite máximo desde config)
+    let apogeoMax = 500;     // en km (límite máximo desde config)
+    let etapaActual = "ETAPA DESCONOCIDA";
+
+    let perigeoVisual = 0;
+    let apogeoVisual = 0;
+    let datosCargados = false;
+
+    // --- Escuchar telemetría ---
+    const docTelemetry = doc(db, "telemetria", "estado_actual");
+    onSnapshot(docTelemetry, (snap) => {
+      if (!snap.exists()) {
+        console.log("No existe el documento de telemetría");
+        return;
+      }
+      const datos = snap.data();
+      console.log("Datos recibidos:", datos);
+
+      // Tomar perigeo y apogeo desde Firebase (en metros) y convertir a km
+      perigeo = (datos.perigeo ?? 0) / 1000;
+      apogeo = (datos.apogeo ?? 0) / 1000;
+      
+      datosCargados = true;
+    });
+
+    // --- Escuchar configuración ---
+    const docConfig = doc(db, "telemetria", "config");
+    onSnapshot(docConfig, (snap) => {
+      if (!snap.exists()) return;
+      const config = snap.data();
+
+      perigeoMax = config.perigeoMax ?? perigeoMax;
+      apogeoMax = config.apogeoMax ?? apogeoMax;
+      etapaActual = config.etapa ?? "ETAPA DESCONOCIDA";
+
+      document.getElementById("stageActual").textContent = "Telemetría " + etapaActual;
+    });
+
+    // --- Dibujo p5.js ---
+    window.setup = function() {
+      createCanvas(600, 300);
+      pixelDensity(2);
+    }
+
+    window.draw = function() {
+      clear();
+
+      if (!datosCargados) {
+        fill(255);
+        textAlign(CENTER, CENTER);
+        textSize(20);
+        text("Cargando datos...", width / 2, height / 2);
+        return;
+      }
+
+      // Suavizado
+      perigeoVisual = lerp(perigeoVisual, perigeo, 0.1);
+      apogeoVisual = lerp(apogeoVisual, apogeo, 0.1);
+
+      drawDynamicTelemetryArc(250, 140, 80, "PERIGEO", perigeoVisual, perigeoMax, "km");
+      drawDynamicTelemetryArc(450, 140, 80, "APOGEO", apogeoVisual, apogeoMax, "km");
+    }
+
+    // --- Función para dibujar los arcos dinámicos ---
+    function drawDynamicTelemetryArc(x, y, radius, label, value, maxValue, unit = "", displayValue = null) {
+      let porcentaje = constrain(value / maxValue, 0, 1);
+      let startAngle = 3 * PI / 4;
+      let fullAngle = TWO_PI - startAngle;
+      let endAngle = startAngle + fullAngle * porcentaje;
+
+      noFill();
+      strokeWeight(5);
+
+      // Arco de fondo
+      stroke(255, 255, 255, 100);
+      arc(x, y, radius * 2, radius * 2, startAngle, startAngle + fullAngle);
+
+      // Arco de progreso
+      stroke(255, 255, 255, 200);
+      arc(x, y, radius * 2, radius * 2, startAngle, endAngle);
+
+      // Círculo decorativo
+      stroke(255, 255, 255, 100);
+      strokeWeight(1);
+      circle(x, y, radius * 1.8);
+
+      // Texto
+      textAlign(CENTER, CENTER);
+      fill(255);
+      noStroke();
+      textSize(12);
+      textStyle(BOLD);
+      text(label, x, y - radius / 2);
+
+      if (displayValue === null) displayValue = value;
+      let valor = displayValue.toFixed(0);
+
+      textSize(30);
+      text(valor, x, y);
+      textSize(15);
+      text(unit, x, y + 30);
+    }
+  </script>
+</body>
+</html>
