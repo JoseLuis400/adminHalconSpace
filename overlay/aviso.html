@@ -47,33 +47,33 @@
     }
 
     h3 {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  font-size: 1.8rem;
-  text-transform: uppercase;
-  position: fixed;
-  top: 0px;
-  width: 400px;
-  text-align: center;
-  right: 0px;
-  color: #fff;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  z-index: 1;
-}
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 1.8rem;
+      text-transform: uppercase;
+      position: fixed;
+      top: 0px;
+      width: 400px;
+      text-align: center;
+      right: 0px;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      z-index: 1;
+    }
 
-p {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  font-size: 1.5rem;
-  padding-left: 10px;
-  padding-right: 10px;
-  position: fixed;
-  top: 50px;
-  width: 410px;
-  text-align: start;
-  left: 250px;
-  color: #fff;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  z-index: 1;
-}
+    p {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 1.5rem;
+      padding-left: 10px;
+      padding-right: 10px;
+      position: fixed;
+      top: 50px;
+      width: 410px;
+      text-align: start;
+      left: 250px;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      z-index: 1;
+    }
   </style>
 </head>
 <body>
@@ -103,7 +103,8 @@ p {
     const avisoTitleEl = document.getElementById('avisoTitle');
     const avisoMessageEl = document.getElementById('avisoMessage');
 
-    let currentCliente = null;
+    let currentEstado = null;        // true = GO, false = NO GO
+    let currentNombre = "";          // nombre del cliente actual
     let initialized = false;
     let hideTimeout = null;
 
@@ -112,29 +113,32 @@ p {
     onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        const nuevoCliente = data.cliente;
+        const nuevoEstado = data.cliente;           // booleano
+        const nuevoNombre = data.clienteNombre || "El cliente"; // fallback por si falta
 
-        if (typeof nuevoCliente !== "boolean") return;
+        if (typeof nuevoEstado !== "boolean") return;
 
-        // Primera lectura → solo guardamos, no mostramos
+        // Primera lectura: solo guardamos valores iniciales
         if (!initialized) {
-          currentCliente = nuevoCliente;
+          currentEstado = nuevoEstado;
+          currentNombre = nuevoNombre;
           initialized = true;
           return;
         }
 
-        // Si cambió → activamos el aviso
-        if (nuevoCliente !== currentCliente) {
-          currentCliente = nuevoCliente;
+        // Detectamos cambio en el estado (GO/NO GO)
+        if (nuevoEstado !== currentEstado) {
+          currentEstado = nuevoEstado;
+          currentNombre = nuevoNombre; // actualizamos por si el nombre cambió también
 
           if (hideTimeout) clearTimeout(hideTimeout);
 
           avisoTitleEl.textContent = "CENTRO DE CONTROL";
 
-          if (nuevoCliente === true) {
-            avisoMessageEl.innerHTML = '<span>El cliente ha confirmado <span style="color: green">su aprobación</span> para proceder con el lanzamiento. Todas las operaciones pueden continuar según lo planificado.</span>';
+          if (nuevoEstado === true) {
+            avisoMessageEl.innerHTML = `<span><strong>${currentNombre}</strong> ha confirmado <span style="color: green">su aprobación</span> para proceder con el lanzamiento. Todas las operaciones pueden continuar según lo planificado.</span>`;
           } else {
-            avisoMessageEl.innerHTML = '<span>El cliente ha decidido <span style="color: red">no autorizar</span> el lanzamiento por el momento. Las operaciones deberán detenerse hasta recibir nuevas instrucciones.</span>';
+            avisoMessageEl.innerHTML = `<span><strong>${currentNombre}</strong> ha decidido <span style="color: red">no autorizar</span> el lanzamiento por el momento. Las operaciones deberán detenerse hasta recibir nuevas instrucciones.</span>`;
           }
 
           avisoEl.classList.add('visible');
@@ -143,6 +147,7 @@ p {
             avisoEl.classList.remove('visible');
           }, 10000);
         }
+        // Opcional: si solo cambia el nombre pero no el estado, podrías actualizar algo aquí en el futuro
       }
     }, (error) => {
       console.error("Error Firebase:", error);
