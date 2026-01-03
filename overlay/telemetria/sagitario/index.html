@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Telemetría de Lanzamiento</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.cdnfonts.com/css/d-din" rel="stylesheet">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Rajdhani:wght@600;700&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+	<style>
+        @import url('https://fonts.cdnfonts.com/css/d-din');
+		:root {
+			--bg-dark: rgba(0, 0, 0, 0.90);
+			--text-white: #ffffff;
+			--text-gray: #a0a0a0;
+			--border-light: rgba(255, 255, 255, 0.4);
+			--progress-bg: rgba(255, 255, 255, 0.08);
+			--progress-fill: rgba(255, 255, 255, 0.9);
+		}
+
+		html, body {
+			width: 100%; height: 100%; margin: 0; padding: 0;
+			overflow: hidden; background-color: transparent;
+			font-family: 'Inter', sans-serif; color: var(--text-white);
+		}
+
+		body { display: flex; justify-content: center; align-items: center; }
+
+        #obs-viewport {
+            width: 1920px; height: 1080px; position: relative;
+            overflow: hidden; flex-shrink: 0; transform-origin: center center;
+        }
+
+        #telemetry-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 160px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;  /* Alinea el inner-bar al fondo */
+    pointer-events: none;
+}
+
+#inner-bar {
+    height: 160px;  /* ← Cambiar de 140px a 160px */
+    background-color: rgb(0, 0, 0);
+    opacity: 0.75;
+    border-top: 1px solid var(--border-light);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.2fr 1fr 1fr;
+    gap: 0;
+    transition: all 0.4s ease;
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* Ajustes de modo con ancho fijo y altura correcta */
+#inner-bar.mode-1 { 
+    grid-template-columns: 1.2fr; 
+    width: 420px;   /* un poquito más ancho para que el timer respire */
+}
+
+#inner-bar.mode-3 { 
+    grid-template-columns: 1fr 1.2fr 1fr; 
+    width: 1050px;  /* ajustado para que quede perfecto con el nuevo padding */
+}
+
+#inner-bar.mode-5 { 
+    grid-template-columns: 1fr 1fr 1.2fr 1fr 1fr; 
+    width: 100%;
+}
+
+/* Fuerza que aceleración y ángulo se peguen a la derecha en modo completo */
+#inner-bar.mode-5 #gforce-cell {
+    grid-column: 4 / 5;   /* Columna 4 de 5 */
+    justify-self: end;    /* Pega el contenido al borde derecho de su celda */
+    padding-right: 40px;  /* Un poco más de espacio para que no toque el borde */
+}
+
+#inner-bar.mode-5 #angle-cell {
+    grid-column: 5 / 5;   /* Columna 5 de 5 */
+    justify-self: end;
+    padding-right: 40px;
+}
+
+/* Aseguramos que altitud y velocidad se queden a la izquierda */
+#inner-bar.mode-5 #altitude-cell {
+    grid-column: 1 / 2;
+    justify-self: start;
+    padding-left: 40px;
+}
+
+#inner-bar.mode-5 #velocity-cell {
+    grid-column: 2 / 3;
+    justify-self: start;
+    padding-left: 40px;
+}
+
+/* Spacer invisible para altitud, velocidad y gforce */
+#altitude-cell::after,
+#velocity-cell::after,
+#gforce-cell::after {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 62px;  /* 50px círculo + 12px margin */
+    opacity: 0;
+}
+
+/* Aseguramos que el contenido esté bien alineado dentro del inner-bar */
+.data-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 20px 15px 20px;  /* ← Aumentar un poquito el padding inferior para respirar */
+    position: relative;
+}
+
+        /* Clase para ocultar solo el contenido, pero mantener el espacio */
+        .content-hidden {
+        	opacity: 0;
+        	visibility: hidden;
+        }
+
+        #timer-cell {
+    background: rgba(255, 255, 255, 0.05);
+    border-left: 2px solid rgba(255, 255, 255, 0.3);
+    border-right: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid rgba(255, 255, 255, 0.3);
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 0;
+    width: 420px;
+    height: 160px;
+    display: flex;                    /* ← Nuevo */
+    flex-direction: column;           /* ← Nuevo */
+    justify-content: center;          /* ← Centrado vertical */
+    align-items: center;              /* ← Centrado horizontal */
+    pointer-events: none;             /* ← Recomendado: evita interferir con mouse */
+    z-index: 10;                      /* ← Asegura que esté por encima */
+}
+
+        .data-label { font-size: 10px; font-weight: 700; color: var(--text-gray); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px; }
+        .data-value { font-family: 'Rajdhani', sans-serif; font-size: 56px; font-weight: 700; color: var(--text-white); line-height: 1; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 6px; }
+        .data-unit { font-size: 18px; font-weight: 600; color: var(--text-gray); text-transform: uppercase; }
+        .data-secondary { font-size: 11px; color: var(--text-gray); margin-top: 4px; font-weight: 500; }
+
+        .progress-bar-container { width: 100%; height: 3px; background: var(--progress-bg); border-radius: 2px; overflow: hidden; margin-top: 10px; }
+        .progress-bar-fill { height: 100%; background: var(--progress-fill); width: 0%; transition: width 0.3s ease-out; box-shadow: 0 0 8px rgba(255, 255, 255, 0.4); }
+
+        #timer-cell .data-value { font-family: 'Barlow Condensed', sans-serif; font-size: 64px; font-weight: 700; }
+        #mission-info { font-size: 11px; font-weight: 700; color: var(--text-gray); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+        #flight-phase { font-size: 10px; font-weight: 600; color: var(--text-white); text-transform: uppercase; margin-top: 6px; opacity: 0.7; }
+
+        .angle-indicator { width: 50px; height: 50px; border: 1px solid var(--border-light); border-radius: 50%; position: relative; margin-top: 8px; }
+        .angle-pointer { position: absolute; width: 2px; height: 20px; background: var(--text-white); transform-origin: bottom center; bottom: 50%; left: 50%; margin-left: -1px; transition: transform 0.2s ease; }
+        .angle-center { width: 4px; height: 4px; background: var(--text-white); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+	</style>
+</head>
+<body>
+    <div id="obs-viewport">
+        <script>
+            document.addEventListener('contextmenu', e => e.preventDefault());
+            function autoScale() {
+				const targetW = 1920; const targetH = 1080;
+				const windowW = window.innerWidth; const windowH = window.innerHeight;
+                let scale = Math.min(windowW / targetW, windowH / targetH);
+                if (scale > 0.99 && scale < 1.01) scale = 1;
+				document.getElementById('obs-viewport').style.transform = `scale(${scale})`;
+			}
+			window.addEventListener('resize', autoScale); 
+			window.addEventListener('load', autoScale);
+        </script>
+
+        <!-- === HTML: Reemplazá todo el div telemetry-bar por esto === -->
+<div id="telemetry-bar">
+    <div id="inner-bar">
+        <div id="altitude-cell" class="data-cell">
+            <div class="data-label">Altitud</div>
+            <div class="data-value"><span id="altitude-value">0</span><span class="data-unit">km</span></div>
+            <div id="altitude-secondary" class="data-secondary">0 ft</div>
+            <div class="progress-bar-container"><div id="altitude-progress" class="progress-bar-fill"></div></div>
+        </div>
+
+        <div id="velocity-cell" class="data-cell">
+            <div class="data-label">Velocidad</div>
+            <div class="data-value"><span id="velocity-value">0</span><span class="data-unit">km/h</span></div>
+            <div id="velocity-secondary" class="data-secondary">Mach 0.00</div>
+            <div class="progress-bar-container"><div id="velocity-progress" class="progress-bar-fill"></div></div>
+        </div>
+
+        <div id="timer-cell" class="data-cell">
+            <div id="mission-info">CARGANDO...</div>
+            <div class="data-value"><span id="main-timer">T-00:00:00</span></div>
+            <div id="flight-phase">Prelaunch</div>
+        </div>
+
+        <div id="gforce-cell" class="data-cell">
+            <div class="data-label">Aceleración</div>
+            <div class="data-value"><span id="gforce-value">1.0</span><span class="data-unit">G</span></div>
+            <div id="gforce-secondary" class="data-secondary">9.8 m/s²</div>
+            <div class="progress-bar-container"><div id="gforce-progress" class="progress-bar-fill"></div></div>
+        </div>
+
+        <div id="angle-cell" class="data-cell">
+            <div class="data-label">Ángulo de Vuelo</div>
+            <div class="data-value"><span id="angle-value">90</span><span class="data-unit">°</span></div>
+            <div class="angle-indicator">
+                <div id="angle-pointer" class="angle-pointer"></div>
+                <div class="angle-center"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+	<script type="module">
+		import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+		import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+		const firebaseConfig = {
+			apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+			authDomain: "halcon-space-348e7.firebaseapp.com",
+			projectId: "halcon-space-348e7",
+			storageBucket: "halcon-space-348e7.firebasestorage.app",
+			messagingSenderId: "741724706453",
+			appId: "1:741724706453:web:519531e63f2b923f952d9c",
+			measurementId: "G-VG1Y2YMY4W"
+		};
+
+		const app = initializeApp(firebaseConfig);
+		const db = getFirestore(app);
+
+		const els = {
+			missionInfo: document.getElementById('mission-info'),
+			timer: document.getElementById('main-timer'),
+			phase: document.getElementById('flight-phase'),
+			altitude: document.getElementById('altitude-value'),
+			altitudeSec: document.getElementById('altitude-secondary'),
+			altitudeProg: document.getElementById('altitude-progress'),
+			velocity: document.getElementById('velocity-value'),
+			velocitySec: document.getElementById('velocity-secondary'),
+			velocityProg: document.getElementById('velocity-progress'),
+			gforce: document.getElementById('gforce-value'),
+			gforceSec: document.getElementById('gforce-secondary'),
+			gforceProg: document.getElementById('gforce-progress'),
+			angle: document.getElementById('angle-value'),
+			anglePointer: document.getElementById('angle-pointer'),
+
+			// Celdas
+			altitudeCell: document.getElementById('altitude-cell'),
+			velocityCell: document.getElementById('velocity-cell'),
+			timerCell: document.getElementById('timer-cell'),
+			gforceCell: document.getElementById('gforce-cell'),
+			angleCell: document.getElementById('angle-cell'),
+            telemetryBar: document.getElementById('telemetry-bar'),
+            innerBar: document.getElementById('inner-bar')
+		};
+
+		let maxValues = { altitudeMax: 170, velocidadMax: 9000, MaxG: 5 };
+		let lastTelemetry = { alt: 0, vel: 0, g: 1.0, ang: 90 };
+
+		let missionId = null;
+		let objetivoUTC = null;
+		let holdUTC = null;
+		let estado = "go";
+		let timerInterval = null;
+		let currentTelemetryType = "completa";
+
+		function setTelemetryLayout(type) {
+    if (type === currentTelemetryType) return;
+
+    // Restaurar todo
+    [els.altitudeCell, els.velocityCell, els.timerCell, els.gforceCell, els.angleCell].forEach(cell => {
+        cell.style.display = "flex";
+        cell.style.gridColumn = "";
+    });
+
+    // Quitar clases de modo del inner-bar
+    els.telemetryBar.querySelector('#inner-bar').classList.remove('mode-1', 'mode-3', 'mode-5');
+
+    currentTelemetryType = type;
+
+    if (type === "contador") {
+    els.altitudeCell.style.display = "none";
+    els.velocityCell.style.display = "none";
+    els.gforceCell.style.display = "none";
+    els.angleCell.style.display = "none";
+
+    els.timerCell.style.gridColumn = "1";
+    els.innerBar.classList.add('mode-1');
+
+} else if (type === "basico") {
+    els.gforceCell.style.display = "none";
+    els.angleCell.style.display = "none";
+
+    els.altitudeCell.style.gridColumn = "1";
+    els.timerCell.style.gridColumn = "2";  // ← El problema: el grid sigue siendo de 5 cols
+    els.velocityCell.style.gridColumn = "3";
+
+    els.innerBar.classList.add('mode-3');
+
+} else {
+    els.innerBar.classList.add('mode-5');
+}
+
+    console.log("Layout cambiado a:", type);
+}
+
+		function formatTimer(secondsDiff) {
+			const positive = secondsDiff >= 0;
+			const abs = Math.abs(secondsDiff);
+			const h = Math.floor(abs / 3600).toString().padStart(2, '0');
+			const m = Math.floor((abs % 3600) / 60).toString().padStart(2, '0');
+			const s = Math.floor(abs % 60).toString().padStart(2, '0');
+			return `${positive ? 'T+' : 'T-'}${h}:${m}:${s}`;
+		}
+
+		function updateTimer() {
+			if (!objetivoUTC) return;
+
+			let diffSeconds;
+			if (estado === "hold" && holdUTC) {
+				diffSeconds = Math.floor((holdUTC.getTime() - objetivoUTC.getTime()) / 1000);
+				els.phase.textContent = "HOLD";
+			} else {
+				diffSeconds = Math.floor((Date.now() - objetivoUTC.getTime()) / 1000);
+				els.phase.textContent = diffSeconds >= 0 ? "Flight" : "Prelaunch";
+			}
+			els.timer.textContent = formatTimer(diffSeconds);
+		}
+
+		function updateBars() {
+			const { alt, vel, g, ang } = lastTelemetry;
+
+			// --- ALTITUD ---
+            let altDisplay;
+
+            if (alt < 99.9) {
+            	altDisplay = alt.toFixed(1);
+            } else {
+            	altDisplay = Math.round(alt).toString();
+            }
+
+            els.altitude.textContent = altDisplay;
+
+            // secundario en pies (desde km)
+            const altFeet = alt * 3280.84;
+            els.altitudeSec.textContent = `${Math.round(altFeet).toLocaleString()} ft`;
+
+            els.altitudeProg.style.width = `${Math.min(100, (alt / maxValues.altitudeMax) * 100)}%`;
+
+			els.velocity.textContent = Math.round(vel).toLocaleString();
+			els.velocitySec.textContent = `Mach ${(vel / 1234.8).toFixed(2)}`;
+			els.velocityProg.style.width = `${Math.min(100, (vel / maxValues.velocidadMax) * 100)}%`;
+
+			els.gforce.textContent = g.toFixed(1);
+			els.gforceSec.textContent = `${(g * 9.81).toFixed(1)} m/s²`;
+			els.gforceProg.style.width = `${Math.min(100, (g / maxValues.MaxG) * 100)}%`;
+
+			els.angle.textContent = Math.round(ang);
+			els.anglePointer.style.transform = `rotate(${ang - 90}deg)`;
+		}
+
+		// === CONFIG ===
+		onSnapshot(doc(db, "telemetria", "config"), (snap) => {
+			if (!snap.exists()) {
+				console.error("Documento config no encontrado");
+				return;
+			}
+
+			const data = snap.data();
+
+			// Telemetry type
+			const newType = (data.telemetry_type || "completa").toLowerCase();
+			if (["contador", "basico", "completa"].includes(newType)) {
+				setTelemetryLayout(newType);
+			} else {
+				setTelemetryLayout("completa");
+			}
+
+			// Máximos
+			const newMax = {
+				altitudeMax: Number(data.altitudeMax) || 170,
+				velocidadMax: Number(data.velocidadMax) || 9000,
+				MaxG: Number(data.MaxG) || 5
+			};
+			const maxChanged = Object.keys(newMax).some(k => newMax[k] !== maxValues[k]);
+			maxValues = newMax;
+			if (maxChanged) updateBars();
+
+			// Misión
+			const newMissionId = data.id_mission;
+			if (newMissionId && newMissionId !== missionId) {
+				missionId = newMissionId;
+				console.log("Cambiando a misión:", missionId);
+
+				onSnapshot(doc(db, "lanzamientos", missionId), (launchSnap) => {
+					if (!launchSnap.exists()) {
+						els.missionInfo.textContent = "MISIÓN NO ENCONTRADA";
+						return;
+					}
+					const ldata = launchSnap.data();
+					els.missionInfo.textContent = ldata.nombre || "SIN NOMBRE";
+
+					objetivoUTC = ldata.utcTime ? new Date(ldata.utcTime) : null;
+					holdUTC = ldata.holdTime ? new Date(ldata.holdTime) : null;
+					estado = ldata.estado || "go";
+
+					if (timerInterval) clearInterval(timerInterval);
+					if (objetivoUTC) {
+						updateTimer();
+						timerInterval = setInterval(updateTimer, 100);
+					}
+				});
+			}
+		});
+
+		// === TELEMETRÍA sagitario ===
+onSnapshot(doc(db, "telemetria", "sagitario"), (docSnap) => {
+	if (!docSnap.exists()) return;
+
+	const data = docSnap.data();
+
+	const altMeters = parseFloat(data.altitud) || 0;
+	const altKm = altMeters / 1000;   // ← conversión clave
+
+	const vel = parseFloat(data.velocidad) || 0;
+	const g = parseFloat(data.aceleracion) || 1.0;
+	const ang = parseFloat(data.angulo) || 90;
+
+	lastTelemetry = { alt: altKm, vel, g, ang };
+	updateBars();
+});
+
+
+		// Layout inicial
+		setTelemetryLayout("completa");
+	</script>
+</body>
+</html>
