@@ -474,15 +474,6 @@ button[type="submit"]:hover {
   }
 }
 
-.header-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
 .filter-group {
   display: flex;
   align-items: center;
@@ -534,65 +525,75 @@ button[type="submit"]:hover {
   <h1>🚀 Panel Admin - Halcon Space</h1>
 
   <div class="stats">
-    <!-- Estadísticas originales -->
-    <!-- CADENCIA (OPCIONAL) -->
+    <!-- Total Misiones con programadas -->
     <div class="stat-card">
       <h3>Total Misiones</h3>
       <div class="number" id="totalMisiones">0</div>
-      <p class="small" id="cadenciaGeneral">—</p>
+      <p class="small" id="programadasInfo">Programadas: 0</p>
     </div>
-    <div class="stat-card">
-      <h3>Programadas</h3>
-      <div class="number" id="programadas">0</div>
-    </div>
+    
+    <!-- Exitosas con cadencia -->
     <div class="stat-card">
       <h3>Exitosas</h3>
       <div class="number" id="exitosas">0</div>
+      <p class="small" id="cadenciaExito">—</p>
     </div>
+    
+    <!-- Fallidas con cadencia -->
     <div class="stat-card">
       <h3>Fallidas</h3>
       <div class="number" id="fallidas">0</div>
+      <p class="small" id="cadenciaFallo">—</p>
     </div>
+    
+    <!-- Sagitario 1 -->
     <div class="stat-card">
-      <h3>En Vuelo</h3>
-      <div class="number" id="enVuelo">0</div>
+      <h3>Sagitario 1</h3>
+      <div class="number" id="sagitario1">0</div>
+      <p class="small" id="cadenciaSagitario">—</p>
     </div>
   
-    <!-- NUEVAS ESTADÍSTICAS -->
     <!-- Falcon 9 -->
-<div class="stat-card">
-  <h3>Falcon 9</h3>
-  <div class="number" id="falcon9">0</div>
-  <p class="small" id="cadenciaF9">—</p>
-</div>
+    <div class="stat-card">
+      <h3>Falcon 9</h3>
+      <div class="number" id="falcon9">0</div>
+      <p class="small" id="cadenciaF9">—</p>
+    </div>
 
-<!-- Falcon Heavy -->
-<div class="stat-card">
-  <h3>Falcon Heavy</h3>
-  <div class="number" id="falconHeavy">0</div>
-  <p class="small" id="cadenciaFH">—</p>
-</div>
+    <!-- Falcon Heavy -->
+    <div class="stat-card">
+      <h3>Falcon Heavy</h3>
+      <div class="number" id="falconHeavy">0</div>
+      <p class="small" id="cadenciaFH">—</p>
+    </div>
+    
     <!-- LC-39A -->
-<div class="stat-card">
-  <h3>LC-39A</h3>
-  <div class="number" id="lc39a">0</div>
-  <p class="small" id="cadenciaLC39A">—</p>
-</div>
+    <div class="stat-card">
+      <h3>LC-39A</h3>
+      <div class="number" id="lc39a">0</div>
+      <p class="small" id="cadenciaLC39A">—</p>
+    </div>
 
-<!-- SLC-40 -->
-<div class="stat-card">
-  <h3>SLC-40</h3>
-  <div class="number" id="slc40">0</div>
-  <p class="small" id="cadenciaSLC40">—</p>
-</div>
+    <!-- LC-39B -->
+    <div class="stat-card">
+      <h3>LC-39B</h3>
+      <div class="number" id="lc39b">0</div>
+      <p class="small" id="cadenciaLC39B">—</p>
+    </div>
 
-<!-- SLC-4E -->
-<div class="stat-card">
-  <h3>SLC-4E</h3>
-  <div class="number" id="slc4e">0</div>
-  <p class="small" id="cadenciaSLC4E">—</p>
-</div>
+    <!-- SLC-40 -->
+    <div class="stat-card">
+      <h3>SLC-40</h3>
+      <div class="number" id="slc40">0</div>
+      <p class="small" id="cadenciaSLC40">—</p>
+    </div>
 
+    <!-- SLC-4E -->
+    <div class="stat-card">
+      <h3>SLC-4E</h3>
+      <div class="number" id="slc4e">0</div>
+      <p class="small" id="cadenciaSLC4E">—</p>
+    </div>
   </div>
 
   <div class="header-actions">
@@ -614,10 +615,10 @@ button[type="submit"]:hover {
         <option value="todos">Todos</option>
         <option value="Falcon 9 Block 5">Falcon 9</option>
         <option value="Falcon Heavy">Falcon Heavy</option>
+        <option value="Sagitario 1">Sagitario 1</option>
       </select>
     </div>
     
-  
     <div class="search-box">
       <input type="text" id="searchInput" placeholder="Buscar misiones...">
     </div>
@@ -664,6 +665,7 @@ button[type="submit"]:hover {
         <select id="vehiculo" required>
           <option value="Falcon 9 Block 5">Falcon 9 Block 5</option>
           <option value="Falcon Heavy">Falcon Heavy</option>
+          <option value="Sagitario 1">Sagitario 1</option>
           <option value="Cargo Dragon">Cargo Dragon</option>
           <option value="Crew Dragon">Crew Dragon</option>
           <option value="Otro">Otro</option>
@@ -716,6 +718,7 @@ button[type="submit"]:hover {
         <select id="plataforma" required>
           <option value="">-- Selecciona plataforma --</option>
           <option value="LC-39A">LC-39A</option>
+          <option value="LC-39B">LC-39B</option>
           <option value="SLC-40">SLC-40</option>
           <option value="SLC-4E">SLC-4E</option>
         </select>
@@ -823,19 +826,16 @@ button[type="submit"]:hover {
     const query = searchInput.value.toLowerCase().trim();
   
     const filtradas = allMisiones.filter(m => {
-      // Filtro por texto
       const coincideTexto = 
         m.nombre.toLowerCase().includes(query) ||
         m.vehiculo.toLowerCase().includes(query) ||
         m.estado.toLowerCase().includes(query);
   
-      // Filtro por estado
       const coincideEstado = 
         filtroEstado === 'todos' ||
         (filtroEstado === 'programado' && m.estado === 'programado') ||
         (filtroEstado === 'lanzadas' && ['exito', 'fallido', 'en vuelo'].includes(m.estado));
   
-      // Filtro por vehículo
       const coincideVehiculo = 
         filtroVehiculo === 'todos' ||
         m.vehiculo === filtroVehiculo;
@@ -879,7 +879,6 @@ button[type="submit"]:hover {
     return `https://halconspace.site${url}`;
   }
   
-  // Función para obtener fecha y hora completa
   function getFechaHora(lanzamiento) {
     if (lanzamiento.utcTime) {
       return new Date(lanzamiento.utcTime);
@@ -956,7 +955,6 @@ button[type="submit"]:hover {
       formMision.timeUTC.value = "00:00:00";
     }
     
-    // Reiniciar filtros
     document.getElementById('filterEstado').value = 'todos';
     document.getElementById('filterVehiculo').value = 'todos';
     filtroEstado = 'todos';
@@ -1025,7 +1023,6 @@ button[type="submit"]:hover {
     }
   }
   
-  // === FUNCIÓN PARA CALCULAR CADENCIA ===
   function calcularCadencia(misionesFiltradas) {
     const completadas = misionesFiltradas
       .filter(m => m.estado === 'exito' || m.estado === 'fallido')
@@ -1048,7 +1045,6 @@ button[type="submit"]:hover {
     const total = allMisiones.length;
     const programadas = allMisiones.filter(m => m.estado === 'programado').length;
     const exitosas = allMisiones.filter(m => m.estado === 'exito').length;
-    const enVuelo = allMisiones.filter(m => m.estado === 'en vuelo').length;
     const fallidas = allMisiones.filter(m => m.estado === 'fallido').length;
   
     const misionesReales = allMisiones.filter(m => 
@@ -1057,48 +1053,48 @@ button[type="submit"]:hover {
   
     const falcon9 = misionesReales.filter(m => m.vehiculo === 'Falcon 9 Block 5');
     const falconHeavy = misionesReales.filter(m => m.vehiculo === 'Falcon Heavy');
+    const sagitario1 = misionesReales.filter(m => m.vehiculo === 'Sagitario 1');
     const lc39a = misionesReales.filter(m => m.plataforma === 'LC-39A');
+    const lc39b = misionesReales.filter(m => m.plataforma === 'LC-39B');
     const slc40 = misionesReales.filter(m => m.plataforma === 'SLC-40');
     const slc4e = misionesReales.filter(m => m.plataforma === 'SLC-4E');
   
-    // === CADENCIA GENERAL ===
-    const completadas = misionesReales
-      .filter(m => m.estado === 'exito' || m.estado === 'fallido')
-      .map(m => getFechaHora(m).getTime())
-      .sort((a, b) => a - b);
+    const exitosasArr = allMisiones.filter(m => m.estado === 'exito');
+    const fallidasArr = allMisiones.filter(m => m.estado === 'fallido');
   
-    let cadenciaGeneral = '—';
-    if (completadas.length >= 2) {
-      const diasTotales = (completadas[completadas.length - 1] - completadas[0]) / (1000 * 60 * 60 * 24);
-      const promedio = diasTotales / (completadas.length - 1);
-      cadenciaGeneral = promedio < 1 ? `${(promedio * 24).toFixed(1)}h` : `${promedio.toFixed(1)}d`;
-    }
-  
-    // === CADENCIA POR TIPO ===
+    const cadenciaExito = calcularCadencia(exitosasArr);
+    const cadenciaFallo = calcularCadencia(fallidasArr);
     const cadenciaF9 = calcularCadencia(falcon9);
     const cadenciaFH = calcularCadencia(falconHeavy);
+    const cadenciaSagitario = calcularCadencia(sagitario1);
     const cadenciaLC39A = calcularCadencia(lc39a);
+    const cadenciaLC39B = calcularCadencia(lc39b);
     const cadenciaSLC40 = calcularCadencia(slc40);
     const cadenciaSLC4E = calcularCadencia(slc4e);
   
-    // === ACTUALIZAR DOM ===
     document.getElementById('totalMisiones').textContent = total;
-    document.getElementById('cadenciaGeneral').textContent = cadenciaGeneral;
-  
-    document.getElementById('programadas').textContent = programadas;
+    document.getElementById('programadasInfo').textContent = `Programadas: ${programadas}`;
+    
     document.getElementById('exitosas').textContent = exitosas;
-    document.getElementById('enVuelo').textContent = enVuelo;
+    document.getElementById('cadenciaExito').textContent = cadenciaExito;
+    
     document.getElementById('fallidas').textContent = fallidas;
-  
+    document.getElementById('cadenciaFallo').textContent = cadenciaFallo;
+    
+    document.getElementById('sagitario1').textContent = sagitario1.length;
+    document.getElementById('cadenciaSagitario').textContent = cadenciaSagitario;
+    
     document.getElementById('falcon9').textContent = falcon9.length;
     document.getElementById('falconHeavy').textContent = falconHeavy.length;
     document.getElementById('lc39a').textContent = lc39a.length;
+    document.getElementById('lc39b').textContent = lc39b.length;
     document.getElementById('slc40').textContent = slc40.length;
     document.getElementById('slc4e').textContent = slc4e.length;
   
     document.getElementById('cadenciaF9').textContent = cadenciaF9;
     document.getElementById('cadenciaFH').textContent = cadenciaFH;
     document.getElementById('cadenciaLC39A').textContent = cadenciaLC39A;
+    document.getElementById('cadenciaLC39B').textContent = cadenciaLC39B;
     document.getElementById('cadenciaSLC40').textContent = cadenciaSLC40;
     document.getElementById('cadenciaSLC4E').textContent = cadenciaSLC4E;
   }
@@ -1128,21 +1124,21 @@ button[type="submit"]:hover {
           </div>
         `;
       }
-  var vehiculoMision = m.vehiculo;
-  if(m.propulsor) {
-    var vehiculoMision = `${m.vehiculo} - ${m.propulsor}`;
-  }
-
-  
-  if(m.recuperacion) {
-    var recuperacionDIV = `
-    <div class="info-row">
+      
+      let vehiculoMision = m.vehiculo;
+      if(m.propulsor) {
+        vehiculoMision = `${m.vehiculo} - ${m.propulsor}`;
+      }
+      
+      let recuperacionDIV = '';
+      if(m.recuperacion) {
+        recuperacionDIV = `
+          <div class="info-row">
             <span class="info-label">Recuperación:</span>
             <span class="info-value">${m.recuperacion.toUpperCase()}</span>
-          </div>`
-  } else {
-    var recuperacionDIV = '';
-  }
+          </div>
+        `;
+      }
   
       return `
       <div class="card-mision" data-id="${m.id}" data-contador="${m.contador ? 'true' : 'false'}" 
@@ -1193,7 +1189,8 @@ button[type="submit"]:hover {
           </div>
         </div>
       </div>
-    `}).join('');
+      `;
+    }).join('');
   
     window.eliminarMision = eliminarMision;
   }
@@ -1211,7 +1208,7 @@ button[type="submit"]:hover {
         return fechaHoraB - fechaHoraA;
       });
   
-      aplicarFiltros(); // Usa filtros actuales
+      aplicarFiltros();
       actualizarEstadisticas();
       iniciarContadores();
     } catch (error) {
@@ -1233,7 +1230,6 @@ button[type="submit"]:hover {
     }, 1000);
   }
   
-  // Guardar misión
   formMision.addEventListener("submit", async e => {
     e.preventDefault();
   
@@ -1299,7 +1295,6 @@ button[type="submit"]:hover {
     }
   });
   
-  // Cerrar modal con ESC
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       const modal = document.getElementById('modal');
@@ -1309,8 +1304,8 @@ button[type="submit"]:hover {
     }
   });
   
-  // Inicializar
   cargarMisiones();
+  
   </script>
 </body>
 </html>
